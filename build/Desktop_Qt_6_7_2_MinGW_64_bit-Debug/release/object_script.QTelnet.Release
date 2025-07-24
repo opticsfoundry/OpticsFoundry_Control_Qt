@@ -1,0 +1,10 @@
+release/main.o
+release/ControlAPI.o
+release/QTCPIP.o
+release/QCmdWidget.o
+release/QTCPIPControlTester.o
+release/TestSequence.o
+release/qrc_resources.o
+release/moc_QCmdWidget.o
+release/moc_QTCPIP.o
+release/moc_QTCPIPControlTester.o
