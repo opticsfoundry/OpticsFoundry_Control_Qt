@@ -1,6 +1,6 @@
 # QTCPIPControl
 
-A QT interface to the UvA control system, using TCP/IP to connect to the Visual Studio version of Control.
+A QT interface to the UvA control system, using a DLL or TCP/IP to connect to the Visual Studio version of OpticsFoundry_Control, e.g. Optics_Foundry_AQuRA.
 
 
 
