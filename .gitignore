@@ -87,6 +87,40 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+
+# Qt Creator build folders
+build*/
+*.pro.user
+*.pro.user.*
+*.qmake.stash
+
+# CMake / Ninja / Make build artifacts (in case used)
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.a
+*.lib
+*.ninja
+*.ilk
+*.pdb
+
+# Ignore Clangd and Qt Creator cache folders
+.qtc_clangd/
+*.idx
+.cache/
+
+# Ignore compile_commands.json unless explicitly wanted
+compile_commands.json
+
+# Ignore all build output except Control.dll
 build/*
-!build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/Control.dll
-!build/Desktop_Qt_6_7_2_MinGW_64_bit-Release/release/Controll.dll
+!build/**/Control.dll
+
+# Allow .gitkeep to keep folder structure
+!*/.gitkeep
