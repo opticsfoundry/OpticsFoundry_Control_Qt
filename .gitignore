@@ -87,3 +87,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+build/*
+!build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/Control.dll
+!build/Desktop_Qt_6_7_2_MinGW_64_bit-Release/release/Controll.dll

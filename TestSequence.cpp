@@ -14,7 +14,7 @@
 CControlAPI CA;
 
 bool BlockButtons = false;
-const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\OpticsFoundry_Control_AQuRA\\ConfigParams\\ControlParam";
+const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
 const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugFiles";
 
 void MessageBox(QString aMessage) {
