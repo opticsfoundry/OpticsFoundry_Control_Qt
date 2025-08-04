@@ -53,7 +53,9 @@ bool CycleSuccessful = true;
 //If it isn't for a long time, we set LittleCycle = false.
 //That will restart cycling from scratch.
 qint64 LastSuccessfulCycleEndTimeSinceMidnight = 0;
-qint64 LastCheckTimeSinceMidnight = 1;
+
+//The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not needed.
+/*qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
     if (LastCheckTimeSinceMidnight == LastSuccessfulCycleEndTimeSinceMidnight) {
         if (Cycling) {
@@ -70,7 +72,7 @@ void CheckIfSequencerCycling() {
         }
     }
     LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
-}
+}*/
 
 QTimer CheckIfSequenceCyclingTimer;
 bool InitializeSequencer(QTelnet *atelnet) {
@@ -84,13 +86,14 @@ bool InitializeSequencer(QTelnet *atelnet) {
     //CA.ConnectToSequencer(/*IP*/ "192.168.0.115"); //done automatically for now
     //CA.ConfigureControlAPI(/*DisplayCommandErrors*/ false);
     
+    //The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not needed.
     //Adding recovery functionality: check regularly if sequencer is cycling, like a dead man's switch.
     //If not cycling for a long time, start cycling from scratch.
-    CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
-    QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
-        CheckIfSequencerCycling();  // call your global function
-    });
-    CheckIfSequenceCyclingTimer.start();
+    //CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
+    //QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
+    //    CheckIfSequencerCycling();  // call your global function
+    //});
+    //CheckIfSequenceCyclingTimer.start();
 
     return true;
 }
