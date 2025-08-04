@@ -54,25 +54,22 @@ bool CycleSuccessful = true;
 //That will restart cycling from scratch.
 qint64 LastSuccessfulCycleEndTimeSinceMidnight = 0;
 
-//The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not needed.
-/*qint64 LastCheckTimeSinceMidnight = 1;
+//The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not absolutely needed.
+//Comment out the following line if you prefer simpler code, without this timer.
+#define UseTimerBasedDeadMansSwitch
+
+#ifdef UseTimerBasedDeadMansSwitch
+qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
     if (LastCheckTimeSinceMidnight == LastSuccessfulCycleEndTimeSinceMidnight) {
         if (Cycling) {
-            //Something went wrong with sequence cycling.
-            //To recover, we we could call:
-            //TerminateCycling(true);
-            //CycleSequenceWithIndividualCommandUpdate();
-            //but for now, we just display that we detected that cycling has stopped.
             SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 60 seconds.");
             LittleCycle = false; //something went quite wrong -> start cycling from scratch
-        } else {
-            //nothing wrong, just a message to show that testing for stopped cycling works. This message should normally be commented out.
-            //MessageBox("CheckIfSequencerCycling: Sequencer not cycling for more than 10 seconds. This seems intended.");
         }
     }
     LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
-}*/
+}
+#endif
 
 QTimer CheckIfSequenceCyclingTimer;
 bool InitializeSequencer(QTelnet *atelnet) {
@@ -86,15 +83,16 @@ bool InitializeSequencer(QTelnet *atelnet) {
     //CA.ConnectToSequencer(/*IP*/ "192.168.0.115"); //done automatically for now
     //CA.ConfigureControlAPI(/*DisplayCommandErrors*/ false);
     
-    //The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not needed.
+    //The dead-man's switch is now implemented directly in CycleSequenceWithIndividualCommandUpdate(), therefore CheckIfSequencerCycling() not absolutely needed.
+#ifdef UseTimerBasedDeadMansSwitch
     //Adding recovery functionality: check regularly if sequencer is cycling, like a dead man's switch.
     //If not cycling for a long time, start cycling from scratch.
-    //CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
-    //QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
-    //    CheckIfSequencerCycling();  // call your global function
-    //});
-    //CheckIfSequenceCyclingTimer.start();
-
+    CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
+    QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
+        CheckIfSequencerCycling();  // call your global function
+    });
+    CheckIfSequenceCyclingTimer.start();
+#endif
     return true;
 }
 
