@@ -11,7 +11,15 @@
 #include <QDateTime>
 //#include <QCoreApplication>
 
-#define EnableDebug
+//#define EnableDebug
+
+#ifndef EnableDebug
+//#define SlowDLLAccessToImproveStability
+#endif
+
+#ifdef SlowDLLAccessToImproveStability
+#include <QThread>
+#endif
 
 void ErrorNotYetImplemented() {
     QMessageBox msgBox;
@@ -402,8 +410,20 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
         DebugTextStream->flush(); \
     } 
 #else
-#define WriteDebug(msg) 
+#ifdef SlowDLLAccessToImproveStability
+    //QThread::usleep(10);//usleep(50); too slow -> use nsecsElapsed, despite being busy wait
+#define WriteDebug(msg) \
+    { \
+    QElapsedTimer t; \
+    t.start();\
+    while (t.nsecsElapsed() < 5000); \
+    }
+#else
+#define WriteDebug(msg)
 #endif
+#endif
+
+
 
 void CControlAPI::DisconnectFromLowLevelSoftware() {
     if (CA_DLL_Lib) {

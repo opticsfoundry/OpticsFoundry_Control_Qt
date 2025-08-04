@@ -15,17 +15,42 @@ CControlAPI CA;
 
 bool BlockButtons = false;
 const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
-const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugFiles";
+const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugControlQt";
+const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
+
+
+void SetStatusTextAndLog(QString aMessage) {
+    static QString LogFileName = "";
+    if (LogFileName=="") {
+        // Format: YYYY-MM-DD_hh-mm-ss.dat
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+        LogFileName = LogFileDirectory + "log_" + timestamp + ".dat";
+    }
+    QFile file(LogFileName);
+    if (file.open(QIODevice::Append)) {
+        QTextStream stream(&file);
+        stream << aMessage << "\n";
+        file.close();
+    }
+    TelnetTester->setStatusText(aMessage, true);
+}
+
 
 void MessageBox(QString aMessage) {
     QMessageBox msgBox;
     msgBox.setText(aMessage);
     msgBox.exec();
-    TelnetTester->setStatusText(aMessage, true);
+    SetStatusTextAndLog(aMessage);
 }
 
-bool Cycling = false;
 
+
+bool Cycling = false;
+bool LittleCycle = true;
+
+//We implement a dead man's switch (a timer) that checks if cycling is proceeding normally.
+//If it isn't for a long time, we set LittleCycle = false.
+//That will restart cycling from scratch.
 qint64 LastCycleEndTimeSinceMidnight = 0;
 qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
@@ -36,7 +61,8 @@ void CheckIfSequencerCycling() {
             //TerminateCycling(true);
             //CycleSequenceWithIndividualCommandUpdate();
             //but for now, we just display that we detected that cycling has stopped.
-            MessageBox("CheckIfSequencerCycling: Sequencer not cycling for more than 10 seconds. This seems to be unintended. Consider adding code to restart cyctling.");
+            SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 60 seconds. This seems to be unintended. Consider adding code to restart cyctling.");
+            LittleCycle = false; //something went quite wrong -> start cycling from scratch
         } else {
             //nothing wrong, just a message to show that testing for stopped cycling works. This message should normally be commented out.
             //MessageBox("CheckIfSequencerCycling: Sequencer not cycling for more than 10 seconds. This seems intended.");
@@ -50,15 +76,16 @@ bool InitializeSequencer(QTelnet *atelnet) {
     //IP address only needed if we connect to low level software over ethernet.
     //If we connect over DLL, it's not needed. The IP of the FPGA is specified in the ControlHardwareConfig.json configuration file of the low-level software.
     //The directory of the configuration file is defined in the config.txt file, which is in the directory specified, or in the directory of the exe file that uses the dll.
-    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "192.168.90.119", /*Debug*/ false, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
+    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "192.168.90.119", /*Debug*/ true, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
         MessageBox("TestSequence.cpp : Initialize() : couldn't connect to low level software.");
         return false;
     }
     //CA.ConnectToSequencer(/*IP*/ "192.168.0.115"); //done automatically for now
     //CA.ConfigureControlAPI(/*DisplayCommandErrors*/ false);
     
-    //for debugging or to add recovery functionality: check regularly if sequencer is cycling
-    CheckIfSequenceCyclingTimer.setInterval(10000); // Try every 3 seconds
+    //Adding recovery functionality: check regularly if sequencer is cycling, like a dead man's switch.
+    //If not cycling for a long time, start cycling from scratch.
+    CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
     QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
         CheckIfSequencerCycling();  // call your global function
     });
@@ -69,7 +96,7 @@ bool InitializeSequencer(QTelnet *atelnet) {
 
 
 bool CheckSequencer() {
-    TelnetTester->setStatusText(CA.UsingDLL() ? "Using Control.dll to connect to sequencer" : "Using ethernet connection to Control.exe to connect to sequencer", true);
+    SetStatusTextAndLog(CA.UsingDLL() ? "Using Control.dll to connect to sequencer" : "Using ethernet connection to Control.exe to connect to sequencer");
     CA.ConfigureControlAPI(/*DisplayCommandErrors*/ false);
     CA.SwitchDebugMode(/*On*/ false, /*DebugTimingOn*/ false); //put debug mode to true if you want to debug sequence (see all the files created by the Visual Studio code, and the USB-serial port output of the ZYNQ FPGA). Usually leave this "false".
     CA.StopCycling();//just in case cycling wasn't correctly terminated before
@@ -106,7 +133,7 @@ bool ResetSystem() {
         CA.StartSequence(/*diplay_progress_dialog*/ true);
         CA.WaitTillSequenceEnds(/*timeout_in_seconds*/ 10);
         //now we are automatically back in direct output mode
-        TelnetTester->setStatusText("Reset system done", true);
+        SetStatusTextAndLog("Reset system done");
     }
     return true;
 }
@@ -249,14 +276,14 @@ bool TreatPhotodiodeData(bool take_photodiode_data, bool message) {
         if (success && (buffer != NULL)) {
             QString myQString = "Data received: "+ QString::number(buffer_length) + " 16-bit values";
             if (message) MessageBox(myQString);
-            else TelnetTester->setStatusText(myQString, true);
+            else SetStatusTextAndLog(myQString);
             //process input data
             SaveInputDataToFile("D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\input.dat", buffer, buffer_length);
             //freeing buffer is done in CA and shouldn't be done here if DLL is used.
             //delete[] Buffer;
         } else {
             if (message) MessageBox("No input data received");
-            TelnetTester->setStatusText("No input data received", true);
+            SetStatusTextAndLog("No input data received");
         }
     } else CA.WaitTillSequenceEnds(/*timeout_in_seconds*/ 10);
     //now we are automatically back in direct output mode
@@ -331,7 +358,7 @@ bool CycleSequence() {
     constexpr int nr = 3;
     for (int n =0; n<nr ;n++) { //here you could also use a while loop, that's stopped whenever you want
         QString mess= QString::number(n+1) + "/"+ QString::number(nr) + ": ";
-        TelnetTester->setStatusText(mess, true, false);
+        SetStatusTextAndLog(mess);
         StartCycleSequence(take_photodiode_data);
         YourOwnCode();
         EndCycleSequence(/*first_cycle*/ n == 0, take_photodiode_data);
@@ -352,7 +379,7 @@ long PreviousLastCycleStartPreTriggerTime = 0;
 unsigned long PreviousFPGASystemTime = 0;
 unsigned int NumberOfTimesFailedRun = 0;
 unsigned int* Buffer = NULL; //32-bit data
-void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, long NextCycleNumber, long &CycleNumber, unsigned long &CycleNrFromBuffer) {//}, long &LastCycleEndTime) {
+void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, long &NextCycleNumber, long &CycleNumber, unsigned long &CycleNrFromBuffer) {//}, long &LastCycleEndTime) {
     bool success;
     unsigned long BufferLength = 0;
     long LastCycleEndTime = 0; //ToDo: should be DWORD, i.e. unsigned long
@@ -364,61 +391,56 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
         MessageBox("GetCycleData: no data");
         return;
     }
-    QFile file("D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\log.dat");
-    if (file.open(QIODevice::Append)) {
-        //FPGA SystemTime is in first 8 bytes thanks to CA.Command("WriteSystemTimeToInputMemory();"); command
-        //unsigned long FPGASystemTimeLowStart = Buffer[0];
-        //unsigned long FPGASystemTimeHighStart = Buffer[1];
-        unsigned long FPGASystemTimeStart = ((unsigned long*)Buffer)[0]; // in units of the clock period, i.e. usually 10ns
-        unsigned long FPGASystemTimeLow = Buffer[2];
-        unsigned long FPGASystemTimeHigh = Buffer[3];
-        unsigned long FPGASystemTime = ((unsigned long*)Buffer)[2]; // in units of the clock period, i.e. usually 10ns
-        CycleNrFromBuffer = Buffer[4];
-        double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
 
-        bool FailedRun = false;
-        unsigned long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
-        if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
-            ErrorMessages+= " Overtime.";
-            FailedRun = true;
-        }
-        if (CycleNumber != CycleNrFromBuffer) {
-            ErrorMessages+= " Cycle number slip.";
-            FailedRun = true;
-        }
-        if ((CycleNumber+1) != NextCycleNumber) {
-            ErrorMessages+= " Next cycle number not correct.";
-            FailedRun = true;
-        }
-        if (FailedRun) NumberOfTimesFailedRun++;
-        PreviousFPGASystemTime = FPGASystemTime;
-        QTextStream stream(&file);
-        char out_buf[100];
-        sprintf(out_buf, "%4u %u %u %u %u %u %3.0f %u %03X %08X f%03u rc%u w%u n%u",
-                CycleNumber,
-                BufferLength,
-                LastCycleStartPreTriggerTime - PreviousLastCycleStartPreTriggerTime,
-                LastCycleEndTime - PreviousLastCycleEndTime,
-                LastCycleEndTime - LastCycleStartPreTriggerTime,
-                (CycleError) ? 1 : 0,
-                WaitForTriggerTime,
-                ElapsedFPGASystemTime,
-                FPGASystemTimeHigh,
-                FPGASystemTimeLow,
-                NumberOfTimesFailedRun,
-                CA.GetNumberReconnects(),
-                TimeTillNextCycleStart_in_ms,
-                NextCycleNumber );
+    //FPGA SystemTime is in first 8 bytes thanks to CA.Command("WriteSystemTimeToInputMemory();"); command
+    //unsigned long FPGASystemTimeLowStart = Buffer[0];
+    //unsigned long FPGASystemTimeHighStart = Buffer[1];
+    unsigned long FPGASystemTimeStart = ((unsigned long*)Buffer)[0]; // in units of the clock period, i.e. usually 10ns
+    unsigned long FPGASystemTimeLow = Buffer[2];
+    unsigned long FPGASystemTimeHigh = Buffer[3];
+    unsigned long FPGASystemTime = ((unsigned long*)Buffer)[2]; // in units of the clock period, i.e. usually 10ns
+    CycleNrFromBuffer = Buffer[4];
+    double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
 
-        stream << out_buf << ErrorMessages << "\n";
-        file.close();
-        QString myQString = QString::fromUtf8(out_buf) + ErrorMessages;
-        TelnetTester->setStatusText(myQString, true);
-        PreviousLastCycleEndTime = LastCycleEndTime;
-        PreviousLastCycleStartPreTriggerTime = LastCycleStartPreTriggerTime;
-    } else {
-        MessageBox("Couldn't open log file for writing");
+    bool FailedRun = false;
+    unsigned long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
+    if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
+        ErrorMessages+= " Overtime.";
+        FailedRun = true;
     }
+    if (CycleNumber != CycleNrFromBuffer) {
+        ErrorMessages+= " Cycle number slip.";
+        CycleNumber = CycleNrFromBuffer; //I'm not completely sure if this is a good idea
+        FailedRun = true;
+    }
+    if ((CycleNumber+1) != NextCycleNumber) {
+        ErrorMessages+= " Next cycle number not correct.";
+        NextCycleNumber = CycleNumber+1; //I'm not completely sure if this is a good idea
+        FailedRun = true;
+    }
+    if (FailedRun) NumberOfTimesFailedRun++;
+    PreviousFPGASystemTime = FPGASystemTime;
+    char out_buf[100];
+    sprintf(out_buf, "%4u %u %u %u %u %u %3.0f %u %03X %08X f%03u rc%u w%u n%u",
+            CycleNumber,
+            BufferLength,
+            LastCycleStartPreTriggerTime - PreviousLastCycleStartPreTriggerTime,
+            LastCycleEndTime - PreviousLastCycleEndTime,
+            LastCycleEndTime - LastCycleStartPreTriggerTime,
+            (CycleError) ? 1 : 0,
+            WaitForTriggerTime,
+            ElapsedFPGASystemTime,
+            FPGASystemTimeHigh,
+            FPGASystemTimeLow,
+            NumberOfTimesFailedRun,
+            CA.GetNumberReconnects(),
+            TimeTillNextCycleStart_in_ms,
+            NextCycleNumber );
+    QString myQString = QString::fromUtf8(out_buf) + ErrorMessages;
+    SetStatusTextAndLog(myQString);
+    PreviousLastCycleEndTime = LastCycleEndTime;
+    PreviousLastCycleStartPreTriggerTime = LastCycleStartPreTriggerTime;
+
     if (take_photodiode_data) {
         //ToDo: use 16-bit data format instead of 32-bit format in order to speed up data handling?
         if (success && (Buffer != NULL)) {
@@ -441,7 +463,7 @@ bool TerminateCycling(bool ok) {
     CA.StopCycling();
     CA.StoreSequenceInMemory(false);
     BlockButtons = false;
-    TelnetTester->setStatusText("Finished cycling", true);
+    SetStatusTextAndLog("Finished cycling");
     Cycling = false;
     return ok;
 }
@@ -466,142 +488,175 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     //which would create a mess with the sequence executed here. 
     //To avoid this, we block these procedures, which is eseentially the same as blocking the buttons on the GUI.
     BlockButtons = true;
-    if (!CheckSequencer()) {
-        BlockButtons = false;
-        return false;
-    }
-    //We tell the low level software to store the sequence, so that it can be used over and over again.
-    CA.StoreSequenceInMemory(true); 
-    bool take_photodiode_data = true;
-    //Next we program the sequence.
-    TestSequence(/*restart_MOT_loading*/ true, take_photodiode_data);
-    //We determine the duration of the sequence, such that we can adapt the periodic trigger accordingly.
-    double SequenceDuration_in_ms = 0;
-    if (!CA.GetSequenceDuration(SequenceDuration_in_ms)) {
-        MessageBox("Could not get sequence duration");
-        return TerminateCycling(false);
-    }
-    double WaitTimeBetweenSequences_in_ms = 300; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
-    PeriodicTriggerPeriod_in_ms = SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms;
-    TelnetTester->setStatusText("Cycling with " + QString::number(PeriodicTriggerPeriod_in_ms) + " ms period of which " + QString::number(SequenceDuration_in_ms) + " ms sequence duration.", true);
-
-    //WaitTimeBetweenSequences_in_ms is essentially the MOT loading time.
-    //During this time the data of the last run is read out, analyzed and the frequency command for the next run(s) are sent.
-    double MaxSequenceDuration_in_s = 20 + PeriodicTriggerPeriod_in_ms/1000; //for the detection of timeouts
-    //Next we define the cycle time. This resets the cycle.
-    //When we launch a sequence the FPGA will wait till at least PeriodicTriggerPeriod_in_ms has elapsed since the last time we did run.
-    //If FPGA needs to wait longer than PeriodicTriggerAllowedWaitTime_in_ms, the CycleError flag is set high. That flag is retrieved with GetCycleData().
-    CA.SetPeriodicTrigger(PeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms);
-
-    long NextCycleNumber = 0;
-    unsigned long CycleNrFromBuffer;
-    long CycleNumberFromCADataRead;
-    long TimeTillNextCycleStart_in_ms = 0;
-    long ReadoutPreTriggerTime_in_ms = 100; //time
-    long QtReadoutPreTriggerTime_in_ms = 200;
-    CA.ResetCycleNumber(); //this sets the next cycle number to 0
-    //the display of a progress bar dialog is probably only useful for debugging and can be set to "false" in normal use
-    //Note that if sequence is not ok, GetCycleData() will return error messages about which line of the sequence was faulty. //ToDo: check that this works.
-    //The Visual Studio code will stop listening to TCPIP commands readout_pre_trigger_in_ms before periodic cycle ends, in order to be ready to immediatley read out data when cycle ends.
-    //The Visual Studio code will send the next command sequence to the FPGA, soft_pre_trigger_in_ms before its estimation of the next FPGA periodic trigger event
-    //In order for the Visual Studio's cycle start time and the FPGA's cycle start time to remain in sync:
-    //at the end of each cycle, Visual Studio measures the end time and calculates the time at which the last periodic trigger must have happened.
-    QTime now = QTime::currentTime();
-    LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
-    if (!CA.StartCycling(ReadoutPreTriggerTime_in_ms, /*soft_pre_trigger_in_ms*/ 250, /*TransmitOnlyDifferenceBetweenCommandSequenceIfPossible*/ true, /*diplay_progress_dialog*/ false)) { //this starts cycle 0
-        if (DidCommandErrorOccur()) return TerminateCycling(false);
-        MessageBox("CycleSequence couldn't start");
-        return TerminateCycling(false);
-    }
+    //if the synchronization to FPGA is lost we set LittleCycle = false.
+    //This will restart everything from scratch, unless "Cycling" is false.
+    //We implement a dead man switch (a timer) that checks if cycling is proceeding normally. If it isn't for a long time, we set LittleCycle = false.
+    bool ret = true;
     Cycling = true;
-    while (Cycling) { //here you could also use a while loop that's stopped whenever you want
-        //here you can run your own code, as long as you give control back soon enough to process photodiode data and tell system to start next run, before the cycle has expired.
-        //If your code takes too long, we will get a longer time between two runs of a sequence than desired. The FPGA will notify us with a "missed cycle" message.
-        YourOwnCode();
-        //ToDo (highly optional): get expected time till next cycle end using GetNextCycleTimeAndNumber() instead of GetNextCycleNumber(). Then sleep or do other things till ReadoutPreTriggerTime before that time. Only then start determining exact time of sequence end using TCP/IP communication.
-        //wait for current cycle to finish
-        long CycleNumber = 0;
+    while (Cycling) {
+        SetStatusTextAndLog("Starting to cycle from scratch.");
+        LittleCycle = true;
+        if (!CheckSequencer()) {
+            BlockButtons = false;
+            return false;
+        }
+        //We tell the low level software to store the sequence, so that it can be used over and over again.
+        CA.StoreSequenceInMemory(true);
+        bool take_photodiode_data = true;
+        //Next we program the sequence.
+        TestSequence(/*restart_MOT_loading*/ true, take_photodiode_data);
+        //We determine the duration of the sequence, such that we can adapt the periodic trigger accordingly.
+        double SequenceDuration_in_ms = 0;
+        if (!CA.GetSequenceDuration(SequenceDuration_in_ms)) {
+            MessageBox("Could not get sequence duration");
+            return TerminateCycling(false);
+        }
+        double WaitTimeBetweenSequences_in_ms = 300; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
+        PeriodicTriggerPeriod_in_ms = SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms;
+        SetStatusTextAndLog("Cycling with " + QString::number(PeriodicTriggerPeriod_in_ms) + " ms period of which " + QString::number(SequenceDuration_in_ms) + " ms sequence duration.");
 
-        //The following while statement is there to reduce TCP/IP communication. If the amount of communication is no concern it can be skipped.
-        bool UseOptionalWait = true;
-        if (UseOptionalWait) {
-            long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-            while (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) { //(CycleNumber <= NextCycleNumber) {
-                //check if cycling was aborted because of incorrect command
+        //WaitTimeBetweenSequences_in_ms is essentially the MOT loading time.
+        //During this time the data of the last run is read out, analyzed and the frequency command for the next run(s) are sent.
+        double MaxSequenceDuration_in_s = 20 + PeriodicTriggerPeriod_in_ms/1000; //for the detection of timeouts
+        //Next we define the cycle time. This resets the cycle.
+        //When we launch a sequence the FPGA will wait till at least PeriodicTriggerPeriod_in_ms has elapsed since the last time we did run.
+        //If FPGA needs to wait longer than PeriodicTriggerAllowedWaitTime_in_ms, the CycleError flag is set high. That flag is retrieved with GetCycleData().
+        CA.SetPeriodicTrigger(PeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms);
+
+        long NextCycleNumber = 0;
+        unsigned long CycleNrFromBuffer;
+        long CycleNumberFromCADataRead;
+        long TimeTillNextCycleStart_in_ms = 0;
+        long ReadoutPreTriggerTime_in_ms = 100; //time
+        long QtReadoutPreTriggerTime_in_ms = 200;
+        CA.ResetCycleNumber(); //this sets the next cycle number to 0
+        //the display of a progress bar dialog is probably only useful for debugging and can be set to "false" in normal use
+        //Note that if sequence is not ok, GetCycleData() will return error messages about which line of the sequence was faulty. //ToDo: check that this works.
+        //The Visual Studio code will stop listening to TCPIP commands readout_pre_trigger_in_ms before periodic cycle ends, in order to be ready to immediatley read out data when cycle ends.
+        //The Visual Studio code will send the next command sequence to the FPGA, soft_pre_trigger_in_ms before its estimation of the next FPGA periodic trigger event
+        //In order for the Visual Studio's cycle start time and the FPGA's cycle start time to remain in sync:
+        //at the end of each cycle, Visual Studio measures the end time and calculates the time at which the last periodic trigger must have happened.
+        QTime now = QTime::currentTime();
+        LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+        if (!CA.StartCycling(ReadoutPreTriggerTime_in_ms, /*soft_pre_trigger_in_ms*/ 250, /*TransmitOnlyDifferenceBetweenCommandSequenceIfPossible*/ true, /*diplay_progress_dialog*/ false)) { //this starts cycle 0
+            if (DidCommandErrorOccur()) return TerminateCycling(false);
+            MessageBox("CycleSequence couldn't start");
+            return TerminateCycling(false);
+        }
+        while (Cycling && LittleCycle) { //here you could also use a while loop that's stopped whenever you want
+            //here you can run your own code, as long as you give control back soon enough to process photodiode data and tell system to start next run, before the cycle has expired.
+            //If your code takes too long, we will get a longer time between two runs of a sequence than desired. The FPGA will notify us with a "missed cycle" message.
+            YourOwnCode();
+            //ToDo (highly optional): get expected time till next cycle end using GetNextCycleTimeAndNumber() instead of GetNextCycleNumber(). Then sleep or do other things till ReadoutPreTriggerTime before that time. Only then start determining exact time of sequence end using TCP/IP communication.
+            //wait for current cycle to finish
+            long CycleNumber = 0;
+
+            //The following while statement is there to reduce TCP/IP communication. If the amount of communication is no concern it can be skipped.
+            bool UseOptionalWait = true;
+            if (UseOptionalWait) {
+                long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+                constexpr unsigned long MaxWaitWhile = 20;
+                unsigned long WaitWhile = 0;
+                while ((ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) && (WaitWhile < MaxWaitWhile)) { //(CycleNumber <= NextCycleNumber) {
+                    WaitWhile++;
+                    //check if cycling was aborted because of incorrect command
+                    if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
+                        if (DidCommandErrorOccur()) return TerminateCycling(false);
+                        MessageBox("Error while cycling");
+                        return TerminateCycling(false);
+                    }
+                    if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
+                        MessageBox("Couldn't get next cycle number (1)");
+                        return TerminateCycling(false);
+                    }
+                    ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+                    //instead of calling Sleep_ms() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
+                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
+                    else Sleep_ms(5);
+                }
+                if (MaxWaitWhile == WaitWhile) {
+                    //LittleCycle = false; //something went quite wrong -> start cycling from scratch //let's first see if it can recover on it's own
+                    SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
+                }
+                NextCycleNumber = CycleNumber;
+            }
+            unsigned int Attempts = 0;
+            const unsigned int MaxAttempts = 10;
+            while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) && (Attempts<MaxAttempts)) {
+                Attempts++;
+                Sleep_ms(10);
+            }
+            if (!(Attempts<MaxAttempts)) {
                 if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
                     if (DidCommandErrorOccur()) return TerminateCycling(false);
                     MessageBox("Error while cycling");
                     return TerminateCycling(false);
                 }
-                if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
-                    MessageBox("Couldn't get next cycle number (1)");
+                MessageBox("Couldn't get data");
+                return TerminateCycling(false);
+            }
+            GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
+            if ((CycleNumber+1) !=  CycleNumberFromCADataRead) {
+                //we are out of sync with the low-level software (too fast). To get back in sync, wait a bit.
+                Sleep_ms(SequenceDuration_in_ms/2);
+            }
+            //if there is more data readily available, then download it. But don't wait for cycle to finish.
+            unsigned long GetDataWhileLoopCount = 0;
+            constexpr unsigned long MaxGetDataWhileLoopCount = 20;
+            while (CA.DataAvailable(/* timeout_in_seconds*/ 0) && Cycling && LittleCycle && (GetDataWhileLoopCount<MaxGetDataWhileLoopCount)) {
+                //The first cycle used an undefined MOT loading time. Ignore that run's data.
+                GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);//, LastCycleEndTime);//, /*timeout_in_seconds*/ MaxSequenceDuration_in_s);
+                //NextCycleReadoutStartTime = LastCycleEndTime + SequenceDuration_in_ms - ReadoutPreTriggerTime;
+                GetDataWhileLoopCount++;
+            }
+            if (GetDataWhileLoopCount == MaxGetDataWhileLoopCount) {
+                //LittleCycle = false; //something went quite wrong -> start cycling from scratch  //let's first see if it can recover on its own
+                SetStatusTextAndLog("error: GetDataWhileLoopCount == MaxGetDataWhileLoopCount");
+            }
+            YourOwnCode();
+            //get number of next cycle (just in case too much time elapsed)
+            if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
+                MessageBox("Couldn't get next cycle number (2)");
+                return TerminateCycling(false);
+            }
+            unsigned long ResyncWhileLoopCount = 0;
+            constexpr unsigned long MaxResyncWhileLoopCount = 20;
+            while ((CycleNumber <= NextCycleNumber) && Cycling && LittleCycle && (ResyncWhileLoopCount<MaxResyncWhileLoopCount)) {
+                //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
+                Sleep_ms(10);
+                //There might be still data from a skipped cycle that now has become available
+                if (CA.DataAvailable(/* timeout_in_seconds*/ 0))
+                    GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
+                if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
+                    MessageBox("Couldn't get next cycle number (3)");
                     return TerminateCycling(false);
                 }
-                ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-                //instead of calling Sleep_ms() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
-                if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
-                else Sleep_ms(5);
+                ResyncWhileLoopCount++;
+            }
+            if (ResyncWhileLoopCount == MaxResyncWhileLoopCount) {
+                //LittleCycle = false; //something went quite wrong -> start cycling from scratch  //let's first see if it can recover on its own
+                SetStatusTextAndLog("error: ResyncWhileLoopCount == MaxResyncWhileLoopCount");
             }
             NextCycleNumber = CycleNumber;
+            //Next you can specify updated commands for the next several cycles
+            //You can schedule the replacement of several code lines within one cycle
+            //A code line can consist of several ;-separated commands
+            //You can store up to 32 replacement commands.
+            //This limit can easily be increased by increasing const unsigned int ReplaceCommandListLength = 32; in ControlAPI.h in the Visual C++ Control code
+            CA.ReplaceCommand(NextCycleNumber+1, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(201);");
+            char command[100];
+            sprintf(command, "WriteInputMemory(%u);", NextCycleNumber+1);
+            CA.ReplaceCommand(NextCycleNumber+1, ModifyCodeLineNr2, command);
+            CA.ReplaceCommand(NextCycleNumber+3, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(202);");
+            QTime now = QTime::currentTime();
+            LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
         }
-        unsigned int Attempts = 0;
-        const unsigned int MaxAttempts = 10;
-        while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) && (Attempts<MaxAttempts)) {
-            Attempts++;
-            Sleep_ms(10);
-        }
-        if (!(Attempts<MaxAttempts)) {
-            if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
-                if (DidCommandErrorOccur()) return TerminateCycling(false);
-                MessageBox("Error while cycling");
-                return TerminateCycling(false);
-            }
-            MessageBox("Couldn't get data");
-            return TerminateCycling(false);
-        }
-        GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
-        if ((CycleNumber+1) !=  CycleNumberFromCADataRead) {
-            //we are out of sync with the low-level software (too fast). To get back in sync, wait a bit.
-            Sleep_ms(SequenceDuration_in_ms/2);
-        }
-        //if there is more data readily available, then download it. But don't wait for cycle to finish.
-        while (CA.DataAvailable(/* timeout_in_seconds*/ 0) && Cycling) {
-            //The first cycle used an undefined MOT loading time. Ignore that run's data.
-            GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);//, LastCycleEndTime);//, /*timeout_in_seconds*/ MaxSequenceDuration_in_s);
-            //NextCycleReadoutStartTime = LastCycleEndTime + SequenceDuration_in_ms - ReadoutPreTriggerTime;
-        }
-        YourOwnCode();
-        //get number of next cycle (just in case too much time elapsed)
-        if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
-            MessageBox("Couldn't get next cycle number (2)");
-            return TerminateCycling(false);
-        }
-        while ((CycleNumber <= NextCycleNumber) && Cycling) {
-            //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
-            Sleep_ms(10);
-            //There might be still data from a skipped cycle that now has become available
-            if (CA.DataAvailable(/* timeout_in_seconds*/ 0))
-                GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
-            if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
-                MessageBox("Couldn't get next cycle number (3)");
-                return TerminateCycling(false);
-            }
-        }
-        NextCycleNumber = CycleNumber;
-        //Next you can specify updated commands for the next several cycles
-        //You can schedule the replacement of several code lines within one cycle
-        //A code line can consist of several ;-separated commands
-        //You can store up to 32 replacement commands.
-        //This limit can easily be increased by increasing const unsigned int ReplaceCommandListLength = 32; in ControlAPI.h in the Visual C++ Control code
-        CA.ReplaceCommand(NextCycleNumber+1, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(201);");
-        char command[100];
-        sprintf(command, "WriteInputMemory(%u);", NextCycleNumber+1);
-        CA.ReplaceCommand(NextCycleNumber+1, ModifyCodeLineNr2, command);
-        CA.ReplaceCommand(NextCycleNumber+3, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(202);");
-        QTime now = QTime::currentTime();
-        LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+        bool aCycling = Cycling;
+        ret = TerminateCycling(true);
+        Cycling = aCycling;
     }
-    return TerminateCycling(true);
+    Cycling = false;
+    return ret;
 }
 
 

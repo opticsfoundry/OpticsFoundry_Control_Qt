@@ -130,3 +130,4 @@ build/*
 !build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/Control.dll
 # Allow .gitkeep to keep folder structure
 !*/.gitkeep
+build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/Control.dll
