@@ -47,28 +47,29 @@ void MessageBox(QString aMessage) {
 
 bool Cycling = false;
 bool LittleCycle = true;
+bool CycleSuccessful = true;
 
 //We implement a dead man's switch (a timer) that checks if cycling is proceeding normally.
 //If it isn't for a long time, we set LittleCycle = false.
 //That will restart cycling from scratch.
-qint64 LastCycleEndTimeSinceMidnight = 0;
+qint64 LastSuccessfulCycleEndTimeSinceMidnight = 0;
 qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
-    if (LastCheckTimeSinceMidnight == LastCycleEndTimeSinceMidnight) {
+    if (LastCheckTimeSinceMidnight == LastSuccessfulCycleEndTimeSinceMidnight) {
         if (Cycling) {
             //Something went wrong with sequence cycling.
             //To recover, we we could call:
             //TerminateCycling(true);
             //CycleSequenceWithIndividualCommandUpdate();
             //but for now, we just display that we detected that cycling has stopped.
-            SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 60 seconds. This seems to be unintended. Consider adding code to restart cyctling.");
+            SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 60 seconds.");
             LittleCycle = false; //something went quite wrong -> start cycling from scratch
         } else {
             //nothing wrong, just a message to show that testing for stopped cycling works. This message should normally be commented out.
             //MessageBox("CheckIfSequencerCycling: Sequencer not cycling for more than 10 seconds. This seems intended.");
         }
     }
-    LastCheckTimeSinceMidnight = LastCycleEndTimeSinceMidnight;
+    LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
 }
 
 QTimer CheckIfSequenceCyclingTimer;
@@ -388,7 +389,8 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     QString ErrorMessages;
     success = CA.GetCycleData(Buffer, BufferLength, CycleNumber, LastCycleEndTime, LastCycleStartPreTriggerTime, CycleError, ErrorMessages);
     if ((!success) || (!Buffer) || (BufferLength<2)) {
-        MessageBox("GetCycleData: no data");
+        SetStatusTextAndLog("GetCycleData: no data");
+        CycleSuccessful = false;
         return;
     }
 
@@ -402,23 +404,23 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     CycleNrFromBuffer = Buffer[4];
     double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
 
-    bool FailedRun = false;
+
     unsigned long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
     if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
         ErrorMessages+= " Overtime.";
-        FailedRun = true;
+        CycleSuccessful = false;
     }
     if (CycleNumber != CycleNrFromBuffer) {
         ErrorMessages+= " Cycle number slip.";
         CycleNumber = CycleNrFromBuffer; //I'm not completely sure if this is a good idea
-        FailedRun = true;
+        CycleSuccessful = false;
     }
     if ((CycleNumber+1) != NextCycleNumber) {
         ErrorMessages+= " Next cycle number not correct.";
         NextCycleNumber = CycleNumber+1; //I'm not completely sure if this is a good idea
-        FailedRun = true;
+        CycleSuccessful = false;
+
     }
-    if (FailedRun) NumberOfTimesFailedRun++;
     PreviousFPGASystemTime = FPGASystemTime;
     char out_buf[100];
     sprintf(out_buf, "%4u %u %u %u %u %u %3.0f %u %03X %08X f%03u rc%u w%u n%u",
@@ -451,7 +453,8 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
             //freeing buffer is done in CA and shouldn't be done here if DLL is used.
             //delete[] Buffer;
         } else {
-            MessageBox("no input data received 2");
+            SetStatusTextAndLog("no input data received 2");
+            CycleSuccessful = false;
         }
     }
 }
@@ -493,6 +496,9 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     //We implement a dead man switch (a timer) that checks if cycling is proceeding normally. If it isn't for a long time, we set LittleCycle = false.
     bool ret = true;
     Cycling = true;
+    unsigned int NumberOfFailedRunsSinceLastSuccessfulRun = 0;
+    QTime now = QTime::currentTime();
+    LastSuccessfulCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
     while (Cycling) {
         SetStatusTextAndLog("Starting to cycle from scratch.");
         LittleCycle = true;
@@ -514,7 +520,6 @@ bool CycleSequenceWithIndividualCommandUpdate() {
         double WaitTimeBetweenSequences_in_ms = 300; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
         PeriodicTriggerPeriod_in_ms = SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms;
         SetStatusTextAndLog("Cycling with " + QString::number(PeriodicTriggerPeriod_in_ms) + " ms period of which " + QString::number(SequenceDuration_in_ms) + " ms sequence duration.");
-
         //WaitTimeBetweenSequences_in_ms is essentially the MOT loading time.
         //During this time the data of the last run is read out, analyzed and the frequency command for the next run(s) are sent.
         double MaxSequenceDuration_in_s = 20 + PeriodicTriggerPeriod_in_ms/1000; //for the detection of timeouts
@@ -536,8 +541,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
         //The Visual Studio code will send the next command sequence to the FPGA, soft_pre_trigger_in_ms before its estimation of the next FPGA periodic trigger event
         //In order for the Visual Studio's cycle start time and the FPGA's cycle start time to remain in sync:
         //at the end of each cycle, Visual Studio measures the end time and calculates the time at which the last periodic trigger must have happened.
-        QTime now = QTime::currentTime();
-        LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+
         if (!CA.StartCycling(ReadoutPreTriggerTime_in_ms, /*soft_pre_trigger_in_ms*/ 250, /*TransmitOnlyDifferenceBetweenCommandSequenceIfPossible*/ true, /*diplay_progress_dialog*/ false)) { //this starts cycle 0
             if (DidCommandErrorOccur()) return TerminateCycling(false);
             MessageBox("CycleSequence couldn't start");
@@ -550,6 +554,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             //ToDo (highly optional): get expected time till next cycle end using GetNextCycleTimeAndNumber() instead of GetNextCycleNumber(). Then sleep or do other things till ReadoutPreTriggerTime before that time. Only then start determining exact time of sequence end using TCP/IP communication.
             //wait for current cycle to finish
             long CycleNumber = 0;
+            CycleSuccessful = true;
 
             //The following while statement is there to reduce TCP/IP communication. If the amount of communication is no concern it can be skipped.
             bool UseOptionalWait = true;
@@ -562,7 +567,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                     //check if cycling was aborted because of incorrect command
                     if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
                         if (DidCommandErrorOccur()) return TerminateCycling(false);
-                        MessageBox("Error while cycling");
+                        MessageBox("CA.IsCycling : Error while cycling (1)");
                         return TerminateCycling(false);
                     }
                     if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
@@ -575,8 +580,8 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                     else Sleep_ms(5);
                 }
                 if (MaxWaitWhile == WaitWhile) {
-                    //LittleCycle = false; //something went quite wrong -> start cycling from scratch //let's first see if it can recover on it's own
                     SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
+                    CycleSuccessful = false;
                 }
                 NextCycleNumber = CycleNumber;
             }
@@ -589,10 +594,10 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             if (!(Attempts<MaxAttempts)) {
                 if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
                     if (DidCommandErrorOccur()) return TerminateCycling(false);
-                    MessageBox("Error while cycling");
+                    MessageBox("CA.IsCycling : Error while cycling (2)");
                     return TerminateCycling(false);
                 }
-                MessageBox("Couldn't get data");
+                MessageBox("CA.IsCycling : couldn't get data");
                 return TerminateCycling(false);
             }
             GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
@@ -610,8 +615,8 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 GetDataWhileLoopCount++;
             }
             if (GetDataWhileLoopCount == MaxGetDataWhileLoopCount) {
-                //LittleCycle = false; //something went quite wrong -> start cycling from scratch  //let's first see if it can recover on its own
                 SetStatusTextAndLog("error: GetDataWhileLoopCount == MaxGetDataWhileLoopCount");
+                CycleSuccessful = false;
             }
             YourOwnCode();
             //get number of next cycle (just in case too much time elapsed)
@@ -634,8 +639,8 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 ResyncWhileLoopCount++;
             }
             if (ResyncWhileLoopCount == MaxResyncWhileLoopCount) {
-                //LittleCycle = false; //something went quite wrong -> start cycling from scratch  //let's first see if it can recover on its own
                 SetStatusTextAndLog("error: ResyncWhileLoopCount == MaxResyncWhileLoopCount");
+                CycleSuccessful = false;
             }
             NextCycleNumber = CycleNumber;
             //Next you can specify updated commands for the next several cycles
@@ -648,8 +653,19 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             sprintf(command, "WriteInputMemory(%u);", NextCycleNumber+1);
             CA.ReplaceCommand(NextCycleNumber+1, ModifyCodeLineNr2, command);
             CA.ReplaceCommand(NextCycleNumber+3, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(202);");
-            QTime now = QTime::currentTime();
-            LastCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+            if (CycleSuccessful) {
+                QTime now = QTime::currentTime();
+                LastSuccessfulCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+                NumberOfFailedRunsSinceLastSuccessfulRun=0;
+            } else {
+                NumberOfTimesFailedRun++;
+                NumberOfFailedRunsSinceLastSuccessfulRun++;
+                if (NumberOfFailedRunsSinceLastSuccessfulRun>20) {
+                    LittleCycle = false; //something is going badly wrong. Let's start cycling from scratch.
+                    NumberOfFailedRunsSinceLastSuccessfulRun = 0;
+                    SetStatusTextAndLog("error: NumberOfFailedRunsSinceLastSuccessfulRun > 20");
+                }
+            }
         }
         bool aCycling = Cycling;
         ret = TerminateCycling(true);
