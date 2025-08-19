@@ -49,6 +49,25 @@ bool Cycling = false;
 bool LittleCycle = true;
 bool CycleSuccessful = true;
 
+bool TerminateCycling(bool ok) {
+    CA.StopCycling();
+    CA.StoreSequenceInMemory(false);
+    BlockButtons = false;
+    SetStatusTextAndLog("Finished cycling");
+    Cycling = false;
+    return ok;
+}
+
+void TerminateLittleCycle() {
+    LittleCycle = false; //something went quite wrong -> start cycling from scratch
+    //somehow setting LittleCycle to false isn't sufficient as we are apparently
+    //stuck, probably in a CA call, but can get unstuck by calling TerminateCycling()
+    bool aCycling = Cycling;
+    TerminateCycling(true);
+    Cycling = aCycling;
+}
+
+
 //We implement a dead man's switch (a timer) that checks if cycling is proceeding normally.
 //If it isn't for a long time, we set LittleCycle = false.
 //That will restart cycling from scratch.
@@ -63,8 +82,8 @@ qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
     if (LastCheckTimeSinceMidnight == LastSuccessfulCycleEndTimeSinceMidnight) {
         if (Cycling) {
-            SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 60 seconds.");
-            LittleCycle = false; //something went quite wrong -> start cycling from scratch
+            SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 30 seconds.");
+            TerminateLittleCycle();
         }
     }
     LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
@@ -87,7 +106,7 @@ bool InitializeSequencer(QTelnet *atelnet) {
 #ifdef UseTimerBasedDeadMansSwitch
     //Adding recovery functionality: check regularly if sequencer is cycling, like a dead man's switch.
     //If not cycling for a long time, start cycling from scratch.
-    CheckIfSequenceCyclingTimer.setInterval(60000); // Try every 60 seconds
+    CheckIfSequenceCyclingTimer.setInterval(30000); // Try every 30 seconds
     QAbstractSocket::connect(&CheckIfSequenceCyclingTimer, &QTimer::timeout, []() {
         CheckIfSequencerCycling();  // call your global function
     });
@@ -461,17 +480,6 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
 }
 
 
-
-
-bool TerminateCycling(bool ok) {
-    CA.StopCycling();
-    CA.StoreSequenceInMemory(false);
-    BlockButtons = false;
-    SetStatusTextAndLog("Finished cycling");
-    Cycling = false;
-    return ok;
-}
-
 //function called by GUI button
 bool StopCyclingButtonPressed() {
     bool ok = true;
@@ -662,15 +670,18 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 NumberOfTimesFailedRun++;
                 NumberOfFailedRunsSinceLastSuccessfulRun++;
                 if (NumberOfFailedRunsSinceLastSuccessfulRun>20) {
-                    LittleCycle = false; //something is going badly wrong. Let's start cycling from scratch.
+                    TerminateLittleCycle();
                     NumberOfFailedRunsSinceLastSuccessfulRun = 0;
                     SetStatusTextAndLog("error: NumberOfFailedRunsSinceLastSuccessfulRun > 20");
                 }
             }
         }
-        bool aCycling = Cycling;
-        ret = TerminateCycling(true);
-        Cycling = aCycling;
+        if (LittleCycle) { //if LittleCycle is false, TerminateCycling was already executed.
+            //the "while (Cycling && LittleCycle)" loop was broken by (Cycling == false)
+            //bool aCycling = Cycling;
+            ret = TerminateCycling(true);
+            //Cycling = aCycling;
+        } else ret = true;
     }
     Cycling = false;
     return ret;
