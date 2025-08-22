@@ -58,16 +58,21 @@ bool TerminateCycling(bool ok) {
     return ok;
 }
 
+bool FirstTerminateLittleCycleAttemptDone = false;
 void TerminateLittleCycle() {
     LittleCycle = false; //something went quite wrong -> start cycling from scratch
     //somehow setting LittleCycle to false isn't sufficient as we are apparently
     //stuck, probably in a CA call, but can get unstuck by calling TerminateCycling()
     TerminateCycling(true);
     Cycling = true;
-    //The lines are a Hail Marry attempt at getting it back to work.
-    //It's not great to call this from a timer, but the Cycling loop is stuck in an unknown place.
-    SetStatusTextAndLog("Restarting cycling");
-    CycleSequenceWithIndividualCommandUpdate();
+    if (FirstTerminateLittleCycleAttemptDone) {
+        //The simple attempt of calling CA.StopCycling() to get it back into cycling mode didn't work.
+        //Now we try to restart it explicitly from this timer event.
+        //This is not great, but better than being stuck.
+        SetStatusTextAndLog("Restarting cycling");
+        CycleSequenceWithIndividualCommandUpdate();
+    }
+    FirstTerminateLittleCycleAttemptDone = true;
 }
 
 
@@ -88,6 +93,8 @@ void CheckIfSequencerCycling() {
             SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 30 seconds.");
             TerminateLittleCycle();
         }
+    } else {
+        FirstTerminateLittleCycleAttemptDone = false;
     }
     LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
 }
