@@ -62,9 +62,12 @@ void TerminateLittleCycle() {
     LittleCycle = false; //something went quite wrong -> start cycling from scratch
     //somehow setting LittleCycle to false isn't sufficient as we are apparently
     //stuck, probably in a CA call, but can get unstuck by calling TerminateCycling()
-    bool aCycling = Cycling;
     TerminateCycling(true);
-    Cycling = aCycling;
+    Cycling = true;
+    //The lines are a Hail Marry attempt at getting it back to work.
+    //It's not great to call this from a timer, but the Cycling loop is stuck in an unknown place.
+    SetStatusTextAndLog("Restarting cycling");
+    CycleSequenceWithIndividualCommandUpdate();
 }
 
 
