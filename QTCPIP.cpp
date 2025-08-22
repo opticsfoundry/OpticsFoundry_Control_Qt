@@ -7,6 +7,7 @@
 #include <QTime>
 #include "ControlAPI.h"
 
+extern CControlAPI CA;
 
 QTelnet::QTelnet(QObject *parent) :
 	QTcpSocket(parent), m_actualSB(0)
@@ -69,7 +70,11 @@ void Sleep_ms(int delay_in_milli_seconds)
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     while (QTime::currentTime() < dieTime) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        QThread::msleep(10);
+        //if we use ControlAPI without timer we need to call it's idle function often
+        QThread::msleep(1);
+        CA.OnIdle();
+        //otherwise we can just sleep longer
+        //QThread::msleep(10);
     }
 }
 

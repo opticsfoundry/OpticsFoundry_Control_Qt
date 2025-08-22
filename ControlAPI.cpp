@@ -11,10 +11,10 @@
 #include <QDateTime>
 //#include <QCoreApplication>
 
-#define EnableDebug
+//#define EnableDebug
 
 #ifndef EnableDebug
-#define SlowDLLAccessToImproveStability
+//#define SlowDLLAccessToImproveStability
 #endif
 
 #ifdef SlowDLLAccessToImproveStability
@@ -79,6 +79,7 @@ void CControlAPI::Set_CA_DLL_CallsToNull() {
     CA_DLL_GetLastError = NULL;
     CA_DLL_StoreSequenceInMemory = NULL;
     CA_DLL_SwitchToDirectOutputMode = NULL;
+    CA_DLL_OnIdle = NULL;
     CA_DLL_StartSequence = NULL;
     CA_DLL_IsSequenceRunning = NULL;
     CA_DLL_GetLastCommandLineNumber = NULL;
@@ -179,6 +180,7 @@ API_EXPORT bool ControlAPI_DidCommandErrorOccur(long* lineNumber, const char** c
 API_EXPORT const char* ControlAPI_GetLastError();
  API_EXPORT void ControlAPI_StoreSequenceInMemory(bool store);
     API_EXPORT void ControlAPI_SwitchToDirectOutputMode();
+    API_EXPORT void ControlAPI_OnIdle();
     API_EXPORT bool ControlAPI_StartSequence(bool showDialog);
     API_EXPORT bool ControlAPI_IsSequenceRunning();
     API_EXPORT long ControlAPI_GetLastCommandLineNumber();
@@ -245,6 +247,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
     CA_DLL_GetLastError = (GetErrorFunc)CA_DLL_Lib->resolve("ControlAPI_GetLastError");
     CA_DLL_StoreSequenceInMemory = (StoreSequenceInMemoryFunc)CA_DLL_Lib->resolve("ControlAPI_StoreSequenceInMemory");
     CA_DLL_SwitchToDirectOutputMode = (SwitchToDirectOutputModeFunc)CA_DLL_Lib->resolve("ControlAPI_SwitchToDirectOutputMode");
+    CA_DLL_OnIdle = (OnIdleFunc)CA_DLL_Lib->resolve("ControlAPI_OnIdle");
     CA_DLL_StartSequence = (StartSequenceFunc)CA_DLL_Lib->resolve("ControlAPI_StartSequence");
     CA_DLL_IsSequenceRunning = (IsSequenceRunningFunc)CA_DLL_Lib->resolve("ControlAPI_IsSequenceRunning");
     CA_DLL_GetLastCommandLineNumber = (GetLastCommandLineNumberFunc)CA_DLL_Lib->resolve("ControlAPI_GetLastCommandLineNumber");
@@ -310,6 +313,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
         !CA_DLL_GetLastError ||
         !CA_DLL_StoreSequenceInMemory ||
         !CA_DLL_SwitchToDirectOutputMode ||
+        !CA_DLL_OnIdle ||
         !CA_DLL_StartSequence ||
         !CA_DLL_IsSequenceRunning ||
         !CA_DLL_GetLastCommandLineNumber ||
@@ -534,6 +538,14 @@ void CControlAPI::SwitchToDirectOutputMode() {
     if (CA_DLL_SwitchToDirectOutputMode)
         CA_DLL_SwitchToDirectOutputMode();
     WriteDebug("x ")
+}
+
+void CControlAPI::OnIdle() {
+    if (CA_DLL_OnIdle) {
+        WriteDebug("OI")
+        CA_DLL_OnIdle();
+        WriteDebug("x ")
+    }
 }
 
 bool CControlAPI::ProgramInterlockSequence() {
@@ -1052,7 +1064,9 @@ void CControlAPI::SwitchToDirectOutputMode() {
     telnet->writeString("SwitchToDirectOutputMode");
 }
 
-
+void CControlAPI::OnIdle() {
+    telnet->writeString("OnIdle");
+}
 
 bool CControlAPI::StartSequence(bool ShowRunProgressDialog, double timeout_in_seconds) {
     unsigned int attempts = 0;

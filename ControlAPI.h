@@ -22,6 +22,7 @@ API_EXPORT bool ControlAPI_DidCommandErrorOccur(long* lineNumber, const char** c
 API_EXPORT const char* ControlAPI_GetLastError();
  API_EXPORT void ControlAPI_StoreSequenceInMemory(bool store);
     API_EXPORT void ControlAPI_SwitchToDirectOutputMode();
+    API_EXPORT void ControlAPI_OnIdle();
     API_EXPORT bool ControlAPI_StartSequence(bool showDialog);
     API_EXPORT bool ControlAPI_IsSequenceRunning();
     API_EXPORT long ControlAPI_GetLastCommandLineNumber();
@@ -87,6 +88,7 @@ typedef bool (*DidErrorFunc)(long*, const char**);
 typedef const char* (*GetErrorFunc)();
 typedef void (*StoreSequenceInMemoryFunc)(bool);
 typedef void (*SwitchToDirectOutputModeFunc)();
+typedef void (*OnIdleFunc)();
 typedef bool (*StartSequenceFunc)(bool);
 typedef bool (*IsSequenceRunningFunc)();
 typedef long (*GetLastCommandLineNumberFunc)();
@@ -161,6 +163,7 @@ private:
     GetErrorFunc CA_DLL_GetLastError;
     StoreSequenceInMemoryFunc CA_DLL_StoreSequenceInMemory;
     SwitchToDirectOutputModeFunc CA_DLL_SwitchToDirectOutputMode;
+    OnIdleFunc CA_DLL_OnIdle;
     StartSequenceFunc CA_DLL_StartSequence;
     IsSequenceRunningFunc CA_DLL_IsSequenceRunning;
     GetLastCommandLineNumberFunc CA_DLL_GetLastCommandLineNumber;
@@ -246,6 +249,7 @@ public:
     long GetLastCommandLineNumber(); //ok
     void ProgramSequence(); //ok
     void SwitchToDirectOutputMode(); //ok
+    void OnIdle();
     bool ProgramInterlockSequence(); //next version
     void ReplaceCommand(unsigned long cycle_number, unsigned int command_line_nr, const char* new_command); //next version
     bool StartSequence(bool ShowRunProgressDialog = false, double timeout_in_seconds = 10); //ok
