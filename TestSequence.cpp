@@ -18,6 +18,21 @@ const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryContr
 const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugControlQt";
 const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
 
+void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
+{
+    QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
+    int remaining = 0;
+    do {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+        //We need to call the API's idle function regularly if we want it to cycle automatically
+        CA.OnIdle();
+        remaining = QTime::currentTime().msecsTo(dieTime);
+        if (remaining>0) {
+            QThread::msleep( (remaining>10) ? 10 : remaining);
+            remaining = QTime::currentTime().msecsTo(dieTime);
+        }
+    } while (remaining > 0);
+}
 
 void SetStatusTextAndLog(QString aMessage) {
     static QString LogFileName = "";
@@ -505,7 +520,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     //From then on only desire command changes are scheduled for certain run numbers.
     //In AQuRA, the DDS frequency that controls the clock laser probe frequency is updated.
     if (BlockButtons) return false;
-    //Below in this procedure, we use Sleep_ms(), which calls  QCoreApplication::processEvents().
+    //Below in this procedure, we use Sleep_ms_and_call_CA_OnIdle(), which calls  QCoreApplication::processEvents().
     //If GUI buttons are pressed, processEvents() could create calls to routines that execute other experimental sequences, 
     //which would create a mess with the sequence executed here. 
     //To avoid this, we block these procedures, which is eseentially the same as blocking the buttons on the GUI.
@@ -594,9 +609,9 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                         return TerminateCycling(false);
                     }
                     ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-                    //instead of calling Sleep_ms() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
-                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
-                    else Sleep_ms(5);
+                    //instead of calling Sleep_ms_and_call_CA_OnIdle() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
+                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
+                    else Sleep_ms_and_call_CA_OnIdle(5);
                 }
                 if (MaxWaitWhile == WaitWhile) {
                     SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
@@ -608,7 +623,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             const unsigned int MaxAttempts = 10;
             while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) && (Attempts<MaxAttempts)) {
                 Attempts++;
-                Sleep_ms(10);
+                Sleep_ms_and_call_CA_OnIdle(10);
             }
             if (!(Attempts<MaxAttempts)) {
                 if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
@@ -622,7 +637,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
             if ((CycleNumber+1) !=  CycleNumberFromCADataRead) {
                 //we are out of sync with the low-level software (too fast). To get back in sync, wait a bit.
-                Sleep_ms(SequenceDuration_in_ms/2);
+                Sleep_ms_and_call_CA_OnIdle(SequenceDuration_in_ms/2);
             }
             //if there is more data readily available, then download it. But don't wait for cycle to finish.
             unsigned long GetDataWhileLoopCount = 0;
@@ -647,7 +662,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             constexpr unsigned long MaxResyncWhileLoopCount = 20;
             while ((CycleNumber <= NextCycleNumber) && Cycling && LittleCycle && (ResyncWhileLoopCount<MaxResyncWhileLoopCount)) {
                 //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
-                Sleep_ms(10);
+                Sleep_ms_and_call_CA_OnIdle(10);
                 //There might be still data from a skipped cycle that now has become available
                 if (CA.DataAvailable(/* timeout_in_seconds*/ 0))
                     GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
@@ -711,14 +726,14 @@ bool TestTCPIP() {
     double MaxSequenceDuration_in_s = 10;
     while (true) {
         TelnetTester->setStatusText("/", true, false);
-        Sleep_ms(10); //wait for 10ms
+        Sleep_ms_and_call_CA_OnIdle(10); //wait for 10ms
         if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
         }
-        Sleep_ms(10); //wait for 10ms
+        Sleep_ms_and_call_CA_OnIdle(10); //wait for 10ms
         TelnetTester->setStatusText("|", true, false);
         if (!CA.CheckIfLowLevelSoftwareReady()) {
         }
-        Sleep_ms(10); //wait for 10ms
+        Sleep_ms_and_call_CA_OnIdle(10); //wait for 10ms
         if (!CA.CheckIfSequencerReady()) {
         }
         TelnetTester->setStatusText("\\", true, false);

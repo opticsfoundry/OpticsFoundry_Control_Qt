@@ -7,7 +7,6 @@
 #include <QTime>
 #include "ControlAPI.h"
 
-extern CControlAPI CA;
 
 QTelnet::QTelnet(QObject *parent) :
 	QTcpSocket(parent), m_actualSB(0)
@@ -65,17 +64,17 @@ void QTelnet::handleDisconnected()
     m_reconnectTimer->start();
 }
 
-void Sleep_ms(int delay_in_milli_seconds)
+void Sleep_ms_and_process_Qt_events(int delay_in_milli_seconds)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     int remaining = 0;
     do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        //if we use ControlAPI without timer we need to call it's idle function regularly
-        CA.OnIdle();
         remaining = QTime::currentTime().msecsTo(dieTime);
-        if (remaining>0) QThread::msleep( (remaining>10) ? 10 : remaining);
-        remaining = QTime::currentTime().msecsTo(dieTime);
+        if (remaining>0) {
+            QThread::msleep( (remaining>10) ? 10 : remaining);
+            remaining = QTime::currentTime().msecsTo(dieTime);
+        }
     } while (remaining > 0);
 }
 
@@ -89,7 +88,7 @@ bool QTelnet::verifyConnected() {
         unsigned int attempt = 0;
         qDebug() << "Trying to reconnect to" << m_lastHost << ":" << m_lastPort;
         while ((state() != QAbstractSocket::ConnectedState) && (attempt<30)) {
-            Sleep_ms(2000);//QThread::msleep(2000);
+            Sleep_ms_and_process_Qt_events(2000);//QThread::msleep(2000);
             connectToHost(m_lastHost, m_lastPort);
             attempt++;
         }

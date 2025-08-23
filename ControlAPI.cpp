@@ -21,6 +21,8 @@
 #include <QThread>
 #endif
 
+extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds);
+
 void ErrorNotYetImplemented() {
     QMessageBox msgBox;
     msgBox.setText("ControlAPI.cpp: function not yet implemented");
@@ -620,7 +622,7 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
         bool DataAvailable = CA_DLL_DataAvailable();
         WriteDebug("x ")
         while ((!DataAvailable) && (WaitedForData_in_ms < Timeout_in_ms)) {
-            Sleep_ms(10);
+            Sleep_ms_and_call_CA_OnIdle(10);
             WaitedForData_in_ms += 10;
             WriteDebug("D")
             DataAvailable = CA_DLL_DataAvailable();
@@ -977,7 +979,7 @@ bool CControlAPI::CheckIfSequencerReady(double timeout_in_seconds) {
     bool b;
     while ((attempts<10) && (!(success = AttemptCheckIfSequencerReady(b, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -997,7 +999,7 @@ bool CControlAPI::CheckIfLowLevelSoftwareReady(double timeout_in_seconds) {
     bool b;
     while ((attempts<10) && (!(success = AttemptCheckIfLowLevelSoftwareReady(b, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1023,7 +1025,7 @@ long CControlAPI::GetLastCommandLineNumber() {
     long l = -1;
     while ((attempts<10) && (!(success = AttemptGetLastCommandLineNumber(l)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return -1;
@@ -1040,7 +1042,7 @@ bool CControlAPI::DidCommandErrorOccur(long& ErrorLineNr, QString& CodeWithError
     bool success = false;
     while ((attempts<10) && (!(success = AttemptDidCommandErrorOccur(ErrorLineNr, CodeWithError, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return true;
@@ -1074,7 +1076,7 @@ bool CControlAPI::StartSequence(bool ShowRunProgressDialog, double timeout_in_se
     bool b;
     while ((attempts<10) && (!(success = AttemptStartSequence(b, ShowRunProgressDialog, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1093,7 +1095,7 @@ bool CControlAPI::IsSequenceRunning() {
     bool running;
     while ((attempts<10) && (!(success = AttemptIsSequenceRunning(running)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1111,7 +1113,7 @@ bool CControlAPI::WaitTillSequenceEnds(double timeout_in_seconds) {
     bool b;
     while ((attempts<10) && (!(success = AttemptWaitTillSequenceEnds(b, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1130,7 +1132,7 @@ bool CControlAPI::IsCycling(double timeout_in_seconds) {
     bool b;
     while ((attempts<10) && (!(success = AttemptIsCycling(b, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1149,7 +1151,7 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
     bool b;
     while ((attempts<10) && (!(success = AttemptDataAvailable(b, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1167,7 +1169,7 @@ double CControlAPI::GetTime_in_ms() {
     double d;
     while ((attempts<10) && (!(success = DataAvailable(d)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return -1;
@@ -1239,7 +1241,7 @@ bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_tri
     bool b;
     while ((attempts<10) && (!(success = AttemptStartCycling(b, readout_pre_trigger_in_ms, soft_pre_trigger_in_ms, TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, display_progress_dialog)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;
@@ -1270,7 +1272,7 @@ bool CControlAPI::GetNextCycleStartTimeAndNumber(long &TimeTillNextCycleStart_in
     bool success = false;
     while ((attempts<10) && (!(success = AttemptGetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, NextCycleNumber, timeout_in_seconds)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     return success;
@@ -1289,7 +1291,7 @@ bool CControlAPI::GetSequenceDuration(double &SequenceDuration_in_ms) {
     bool success = false;
     while ((attempts<10) && (!(success = AttemptGetSequenceDuration( SequenceDuration_in_ms )))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     return success;
@@ -1332,7 +1334,7 @@ bool CControlAPI::WaitTillEndOfSequenceThenGetInputData(unsigned int*& buffer, u
     while ((attempts<10) && (!(success = AttemptWaitTillEndOfSequenceThenGetInputData(buffer,  buffer_length, timeout_in_seconds) ))) {
         if (buffer!=nullptr) delete[] buffer;
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     return success;
@@ -1391,7 +1393,7 @@ bool CControlAPI::GetCycleData(unsigned int*& buffer, unsigned long& buffer_leng
         if (buffer) delete[] buffer;
         buffer = NULL;
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     return success;
@@ -1480,7 +1482,7 @@ bool CControlAPI::GetPeriodicTriggerError() {
     bool b;
     while ((attempts<10) && (!(success = AttemptGetPeriodicTriggerError(b)))) {
         telnet->disconnectFromRemote();
-        Sleep_ms(1000);
+        Sleep_ms_and_process_Qt_events(1000);
         attempts++;
     }
     if (attempts>=10) return false;

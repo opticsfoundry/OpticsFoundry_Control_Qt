@@ -10,7 +10,7 @@
 #define IncommingBufferSize (1500)
 
 
-extern void Sleep_ms(int delay_in_milli_seconds);
+extern void Sleep_ms_and_process_Qt_events(int delay_in_milli_seconds);
 
 class QTelnet : public QTcpSocket
 {
