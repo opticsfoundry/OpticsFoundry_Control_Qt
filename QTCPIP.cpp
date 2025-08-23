@@ -68,14 +68,15 @@ void QTelnet::handleDisconnected()
 void Sleep_ms(int delay_in_milli_seconds)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
-    while (QTime::currentTime() < dieTime) {
+    int remaining = 0;
+    do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        //if we use ControlAPI without timer we need to call it's idle function often
-        QThread::msleep(1);
+        //if we use ControlAPI without timer we need to call it's idle function regularly
         CA.OnIdle();
-        //otherwise we can just sleep longer
-        //QThread::msleep(10);
-    }
+        remaining = QTime::currentTime().msecsTo(dieTime);
+        if (remaining>0) QThread::msleep( (remaining>10) ? 10 : remaining);
+        remaining = QTime::currentTime().msecsTo(dieTime);
+    } while (remaining > 0);
 }
 
 bool QTelnet::verifyConnected() {
