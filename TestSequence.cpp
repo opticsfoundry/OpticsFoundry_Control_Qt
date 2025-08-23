@@ -632,7 +632,6 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);//, LastCycleEndTime);//, /*timeout_in_seconds*/ MaxSequenceDuration_in_s);
                 //NextCycleReadoutStartTime = LastCycleEndTime + SequenceDuration_in_ms - ReadoutPreTriggerTime;
                 GetDataWhileLoopCount++;
-                Sleep_ms(0); //do Idle processing
             }
             if (GetDataWhileLoopCount == MaxGetDataWhileLoopCount) {
                 SetStatusTextAndLog("error: GetDataWhileLoopCount == MaxGetDataWhileLoopCount");
