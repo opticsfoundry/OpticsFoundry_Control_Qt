@@ -11,7 +11,7 @@
 #include <QDateTime>
 //#include <QCoreApplication>
 
-//#define EnableDebug
+#define EnableDebug
 
 #ifndef EnableDebug
 //#define SlowDLLAccessToImproveStability

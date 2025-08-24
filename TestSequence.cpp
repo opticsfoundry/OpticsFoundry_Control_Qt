@@ -73,21 +73,17 @@ bool TerminateCycling(bool ok) {
     return ok;
 }
 
-bool FirstTerminateLittleCycleAttemptDone = false;
 void TerminateLittleCycle() {
     LittleCycle = false; //something went quite wrong -> start cycling from scratch
     //somehow setting LittleCycle to false isn't sufficient as we are apparently
     //stuck, probably in a CA call, but can get unstuck by calling TerminateCycling()
     TerminateCycling(true);
     Cycling = true;
-    if (FirstTerminateLittleCycleAttemptDone) {
-        //The simple attempt of calling CA.StopCycling() to get it back into cycling mode didn't work.
-        //Now we try to restart it explicitly from this timer event.
-        //This is not great, but better than being stuck.
-        SetStatusTextAndLog("Restarting cycling");
-        CycleSequenceWithIndividualCommandUpdate();
-    }
-    FirstTerminateLittleCycleAttemptDone = true;
+    //We restart cycling explicitly from this timer event (could alternatively be done by Qt message).
+    //It's not great to duplicate the cycling process in this way, but better than having just one stuck process.
+    //Longterm it would be better to find out what the root cause of the issue is.
+    SetStatusTextAndLog("Restarting cycling");
+    CycleSequenceWithIndividualCommandUpdate();
 }
 
 
@@ -105,11 +101,10 @@ qint64 LastCheckTimeSinceMidnight = 1;
 void CheckIfSequencerCycling() {
     if (LastCheckTimeSinceMidnight == LastSuccessfulCycleEndTimeSinceMidnight) {
         if (Cycling) {
+            //This currently happens about 1 in 50 thousand cycles
             SetStatusTextAndLog("CheckIfSequencerCycling: Sequencer not cycling for more than 30 seconds.");
             TerminateLittleCycle();
         }
-    } else {
-        FirstTerminateLittleCycleAttemptDone = false;
     }
     LastCheckTimeSinceMidnight = LastSuccessfulCycleEndTimeSinceMidnight;
 }
@@ -695,9 +690,11 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 NumberOfTimesFailedRun++;
                 NumberOfFailedRunsSinceLastSuccessfulRun++;
                 if (NumberOfFailedRunsSinceLastSuccessfulRun>20) {
-                    TerminateLittleCycle();
+                    LittleCycle = false; //something went quite wrong -> start cycling from scratch
+                    TerminateCycling(true);
+                    Cycling = true;
                     NumberOfFailedRunsSinceLastSuccessfulRun = 0;
-                    SetStatusTextAndLog("error: NumberOfFailedRunsSinceLastSuccessfulRun > 20");
+                    SetStatusTextAndLog("error: NumberOfFailedRunsSinceLastSuccessfulRun > 20; terminating little cycle");
                 }
             }
         }
