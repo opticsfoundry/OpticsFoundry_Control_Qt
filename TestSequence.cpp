@@ -118,7 +118,7 @@ bool InitializeSequencer(QTelnet *atelnet) {
     //IP address only needed if we connect to low level software over ethernet.
     //If we connect over DLL, it's not needed. The IP of the FPGA is specified in the ControlHardwareConfig.json configuration file of the low-level software.
     //The directory of the configuration file is defined in the config.txt file, which is in the directory specified, or in the directory of the exe file that uses the dll.
-    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "192.168.58.157", /*Debug*/ true, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
+    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "10.0.2.42"/*192.168.58.157"*/, /*Debug*/ true, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
         MessageBox("TestSequence.cpp : Initialize() : couldn't connect to low level software.");
         return false;
     }
@@ -549,7 +549,11 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             MessageBox("Could not get sequence duration");
             return TerminateCycling(false);
         }
+#ifdef USE_DLL
         double WaitTimeBetweenSequences_in_ms = 300; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
+#else
+        double WaitTimeBetweenSequences_in_ms = 500; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
+#endif
         PeriodicTriggerPeriod_in_ms = SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms;
         SetStatusTextAndLog("Cycling with " + QString::number(PeriodicTriggerPeriod_in_ms) + " ms period of which " + QString::number(SequenceDuration_in_ms) + " ms sequence duration.");
         //WaitTimeBetweenSequences_in_ms is essentially the MOT loading time.
