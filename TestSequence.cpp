@@ -74,6 +74,9 @@ bool TerminateCycling(bool ok) {
 }
 
 void TerminateLittleCycle() {
+    //For debugging, I want the system to stall. Therefore I don't remedy the problem and return.
+    //return; //comment this line out when not debugging.
+
     LittleCycle = false; //something went quite wrong -> start cycling from scratch
     //somehow setting LittleCycle to false isn't sufficient as we are apparently
     //stuck, probably in a CA call, but can get unstuck by calling TerminateCycling()
@@ -115,7 +118,7 @@ bool InitializeSequencer(QTelnet *atelnet) {
     //IP address only needed if we connect to low level software over ethernet.
     //If we connect over DLL, it's not needed. The IP of the FPGA is specified in the ControlHardwareConfig.json configuration file of the low-level software.
     //The directory of the configuration file is defined in the config.txt file, which is in the directory specified, or in the directory of the exe file that uses the dll.
-    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "192.168.90.119", /*Debug*/ true, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
+    if (!CA.ConnectToLowLevelSoftware(atelnet, ParamFileDirectory, /*IP*/ "192.168.58.157", /*Debug*/ true, DebugFileDirectory)) { //Irene's place: 192.168.0.103 Odido: 192.168.1.155
         MessageBox("TestSequence.cpp : Initialize() : couldn't connect to low level software.");
         return false;
     }

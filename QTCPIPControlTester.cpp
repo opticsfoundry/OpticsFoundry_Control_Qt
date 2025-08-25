@@ -14,7 +14,7 @@ QTelnetTester::QTelnetTester(QWidget *parent) :
 	telnet(this)
 {
 	ui->setupUi(this);
-    ui->leAddr->setText("192.168.1.155"); //Irene's place:192.168.0.106
+    ui->leAddr->setText("192.168.58.157"); //Irene's place:192.168.0.106
 	connect( &telnet, SIGNAL(newData(const char*,int)), this, SLOT(addText(const char*,int)) );
 	connect( &telnet, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onStateChanged(QAbstractSocket::SocketState)) );
 	connect( ui->cbCmd, SIGNAL(command(QString)), this, SLOT(onCommand(QString)));
