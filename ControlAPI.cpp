@@ -543,11 +543,18 @@ void CControlAPI::SwitchToDirectOutputMode() {
 }
 
 void CControlAPI::OnIdle() {
+//if the DLL is used without a timer in the DLL kicking the DLL's OnIdle function, we need to do that
+//It's a bit cleaner if we do it from Qt, as we then never can have a conflict between code execution started by the DLL timer
+//and code execution started by a DLL call.
+//If we use ethernet to connect to the API, it is not needed to kick the API's OnIdle function,
+//because it is its own program with its own OnIdle calls anyways.
+#ifdef USE_CA_DLL
     if (CA_DLL_OnIdle) {
         WriteDebug("OI")
         CA_DLL_OnIdle();
-        WriteDebug("x ")
+        WriteDebug("x")
     }
+#endif
 }
 
 bool CControlAPI::ProgramInterlockSequence() {
