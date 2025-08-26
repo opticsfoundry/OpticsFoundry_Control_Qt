@@ -22,6 +22,8 @@ void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     int remaining = 0;
+    constexpr int MaxNrLoops = 500;
+    int NrLoops = 0;
     do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         //We need to call the API's idle function regularly if we want it to cycle automatically
@@ -31,7 +33,8 @@ void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
             QThread::msleep( (remaining>10) ? 10 : remaining);
             remaining = QTime::currentTime().msecsTo(dieTime);
         }
-    } while (remaining > 0);
+        NrLoops++;
+    } while ((remaining > 0) && (NrLoops<MaxNrLoops));
 }
 
 void SetStatusTextAndLog(QString aMessage) {
@@ -611,6 +614,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                         return TerminateCycling(false);
                     }
                     ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>SequenceDuration_in_ms) ExpectedWaitTimeTillDataAvailableCommandToBeSent=SequenceDuration_in_ms/2;
                     //instead of calling Sleep_ms_and_call_CA_OnIdle() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
                     if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
                     else Sleep_ms_and_call_CA_OnIdle(5);
@@ -623,7 +627,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             }
             unsigned int Attempts = 0;
             const unsigned int MaxAttempts = 10;
-            while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) && (Attempts<MaxAttempts)) {
+            while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1)) && (Attempts<MaxAttempts)) {
                 Attempts++;
                 Sleep_ms_and_call_CA_OnIdle(10);
             }

@@ -550,7 +550,7 @@ void CControlAPI::OnIdle() {
 //because it is its own program with its own OnIdle calls anyways.
 #ifdef USE_CA_DLL
     if (CA_DLL_OnIdle) {
-        WriteDebug("OI")
+        WriteDebug("I")
         CA_DLL_OnIdle();
         WriteDebug("x")
     }
@@ -635,6 +635,7 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
             DataAvailable = CA_DLL_DataAvailable();
             WriteDebug("x ")
         }
+        WriteDebug(((DataAvailable) ? "d1 " : "d0 "))
         return DataAvailable;
     }
     return false;

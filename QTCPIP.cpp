@@ -68,6 +68,8 @@ void Sleep_ms_and_process_Qt_events(int delay_in_milli_seconds)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     int remaining = 0;
+    constexpr unsigned int MaxNrLoops = 500;
+    unsigned int NrLoops = 0;
     do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         remaining = QTime::currentTime().msecsTo(dieTime);
@@ -75,7 +77,8 @@ void Sleep_ms_and_process_Qt_events(int delay_in_milli_seconds)
             QThread::msleep( (remaining>10) ? 10 : remaining);
             remaining = QTime::currentTime().msecsTo(dieTime);
         }
-    } while (remaining > 0);
+        NrLoops++;
+    } while ((remaining > 0) && (NrLoops < MaxNrLoops));
 }
 
 bool QTelnet::verifyConnected() {
