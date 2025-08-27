@@ -552,7 +552,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             MessageBox("Could not get sequence duration");
             return TerminateCycling(false);
         }
-#ifdef USE_DLL
+#ifdef USE_CA_DLL
         double WaitTimeBetweenSequences_in_ms = 300; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
 #else
         double WaitTimeBetweenSequences_in_ms = 500; //This is the MOT loading time. If the DLL is used it can reliably work down to about 200ms (for 8000 photodiode data points, with 76Mbit/s bandwidth to FPGA). In TCP/IP mode, it can be down to 300ms.
