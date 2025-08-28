@@ -11,7 +11,7 @@
 #include <QTime>
 #include <QThread>
 
-#define AQuRA_Clock
+//#define AQuRA_Clock
 
 CControlAPI CA;
 
@@ -22,9 +22,9 @@ const char* ParamFileDirectory = "C:\\AQuRA\\OpticsFoundry_Control_AQuRA\\Config
 const QString DebugFileDirectory = "C:\\AQuRA\\DebugControlQt";
 const QString LogFileDirectory = "C:\\AQuRA\\Data\\";
 #else
-const char* ParamFileDirectory = "C:\\AQuRA\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
-const QString DebugFileDirectory = "C:\\AQuRA\\DebugControlQt";
-const QString LogFileDirectory = "C:\\AQuRA\\Data\\";
+const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
+const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugControlQt";
+const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
 #endif
 
 void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)

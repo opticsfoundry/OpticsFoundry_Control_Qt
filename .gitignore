@@ -148,3 +148,6 @@ build/*
 /.vs/OpticsFoundry_Control_Qt/v17
 /.vs/OpticsFoundry_Control_Qt/FileContentIndex
 /.vs
+debug/object_script.QTelnet.Debug
+release/object_script.QTelnet.Release
+debug/moc_predefs.h
