@@ -11,12 +11,21 @@
 #include <QTime>
 #include <QThread>
 
+#define AQuRA_Clock
+
 CControlAPI CA;
 
 bool BlockButtons = false;
-const char* ParamFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
-const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\DebugControlQt";
-const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
+
+#ifdef AQuRA_Clock
+const char* ParamFileDirectory = "C:\\AQuRA\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
+const QString DebugFileDirectory = "C:\\AQuRA\\DebugControlQt";
+const QString LogFileDirectory = "C:\\AQuRA\\Data\\";
+#else
+const char* ParamFileDirectory = "C:\\AQuRA\\OpticsFoundry_Control_AQuRA\\ConfigParams\\";
+const QString DebugFileDirectory = "C:\\AQuRA\\DebugControlQt";
+const QString LogFileDirectory = "C:\\AQuRA\\Data\\";
+#endif
 
 void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
 {
@@ -494,7 +503,7 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
         if (success && (Buffer != NULL)) {
             //process input data
             char filename[100];
-            sprintf(filename, "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\input%04u.dat", CycleNumber);
+            sprintf(filename,  "%s\\input%04u.dat",LogFileDirectory.toUtf8().data() , CycleNumber);
             SaveInputDataToFile(filename, Buffer, BufferLength);
             //freeing buffer is done in CA and shouldn't be done here if DLL is used.
             //delete[] Buffer;

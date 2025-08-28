@@ -128,5 +128,23 @@ build/*
 !build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/
 !build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/
 !build/Desktop_Qt_6_7_2_MinGW_64_bit-Debug/debug/Control.dll
+!Control.dll
+
 # Allow .gitkeep to keep folder structure
 !*/.gitkeep
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/CodeChunks.db
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/CodeChunks.db-wal
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/SemanticSymbols.db
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/CodeChunks.db-shm
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/SemanticSymbols.db-shm
+/.vs/OpticsFoundry_Control_Qt/CopilotIndices/17.14.878.3237/SemanticSymbols.db-wal
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/4e4728a6-8404-42ed-863b-ee9f4cee62f2.vsidx
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/83d3e0af-18b6-4fcf-a819-cad2a56e9069.vsidx
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/423efd4b-a09b-4c26-aa4c-9066fc164f76.vsidx
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/7866f056-c96b-4ed9-ad65-e0b9502b4aab.vsidx
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/344240f8-4261-43f8-9d9b-1cd92865d47a.vsidx
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex/29add212-95c0-41cc-8aa8-f9a0d6c6e512.vsidx
+/.vs/OpticsFoundry_Control_Qt/v17/.wsuo
+/.vs/OpticsFoundry_Control_Qt/v17
+/.vs/OpticsFoundry_Control_Qt/FileContentIndex
+/.vs
