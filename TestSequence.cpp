@@ -212,7 +212,7 @@ void SaveInputDataToFile(QString filename, unsigned int* buffer, unsigned long b
             //for usual, 16-bit data format
             char out_buf[100];
             sprintf(out_buf, "%u %u\n", i, buffer[i]);
-            //sprintf(out_buf, "%u %u 0x%x\n", i, buffer[i], buffer[i]);
+            //sprintf(out_buf, "%u %u 0x%08X\n", i, buffer[i], buffer[i]);
             stream << out_buf;
         }
         file.close();
@@ -429,10 +429,10 @@ bool CycleSequence() {
 //Example of using a cyclic sequence with individual command updates. This is likely what we will use for AQuRA.
 //
 
-unsigned long PeriodicTriggerPeriod_in_ms = 0;
+double PeriodicTriggerPeriod_in_ms = 0;
 long PreviousLastCycleEndTime = 0;
 long PreviousLastCycleStartPreTriggerTime = 0;
-unsigned long PreviousFPGASystemTime = 0;
+unsigned long long PreviousFPGASystemTime = 0;
 unsigned int NumberOfTimesFailedRun = 0;
 unsigned int* Buffer = NULL; //32-bit data
 void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, long &NextCycleNumber, long &CycleNumber, unsigned long &CycleNrFromBuffer) {//}, long &LastCycleEndTime) {
@@ -452,15 +452,13 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     //FPGA SystemTime is in first 8 bytes thanks to CA.Command("WriteSystemTimeToInputMemory();"); command
     //unsigned long FPGASystemTimeLowStart = Buffer[0];
     //unsigned long FPGASystemTimeHighStart = Buffer[1];
-    unsigned long FPGASystemTimeStart = ((unsigned long*)Buffer)[0]; // in units of the clock period, i.e. usually 10ns
+    unsigned long long FPGASystemTimeStart = ((unsigned long long*)Buffer)[0]; // in units of the clock period, i.e. usually 10ns
     unsigned long FPGASystemTimeLow = Buffer[2];
     unsigned long FPGASystemTimeHigh = Buffer[3];
-    unsigned long FPGASystemTime = ((unsigned long*)Buffer)[2]; // in units of the clock period, i.e. usually 10ns
+    unsigned long long FPGASystemTime = ((unsigned long long*)Buffer)[1]; // in units of the clock period, i.e. usually 10ns
     CycleNrFromBuffer = Buffer[4];
     double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
-
-
-    unsigned long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
+    unsigned long long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
     if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
         ErrorMessages+= " Overtime.";
         CycleSuccessful = false;
@@ -478,7 +476,7 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     }
     PreviousFPGASystemTime = FPGASystemTime;
     char out_buf[100];
-    sprintf(out_buf, "%4u %u %u %u %u %u %3.0f %u %03X %08X f%03u rc%u w%u n%u",
+    sprintf(out_buf, "%4u %u %u %u %u %u %3.0f %llu %03X %08X f%03u rc%u w%u n%u",
             CycleNumber,
             BufferLength,
             LastCycleStartPreTriggerTime - PreviousLastCycleStartPreTriggerTime,
