@@ -443,7 +443,7 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     bool CycleError;  //if true start of this sequence happend with too much delay, i.e. we jump over at least one cycle
     QString ErrorMessages;
     success = CA.GetCycleData(Buffer, BufferLength, CycleNumber, LastCycleEndTime, LastCycleStartPreTriggerTime, CycleError, ErrorMessages);
-    if ((!success) || (!Buffer) || (BufferLength<2)) {
+    if ((!success) || (!Buffer) || (BufferLength<3)) {
         SetStatusTextAndLog("GetCycleData: no data");
         CycleSuccessful = false;
         return;
@@ -603,35 +603,35 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             CycleSuccessful = true;
 
             //The following while statement is there to reduce TCP/IP communication. If the amount of communication is no concern it can be skipped.
-            bool UseOptionalWait = true;
-            if (UseOptionalWait) {
-                long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-                constexpr unsigned long MaxWaitWhile = 20;
-                unsigned long WaitWhile = 0;
-                while ((ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) && (WaitWhile < MaxWaitWhile)) { //(CycleNumber <= NextCycleNumber) {
-                    WaitWhile++;
-                    //check if cycling was aborted because of incorrect command
-                    if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
-                        if (DidCommandErrorOccur()) return TerminateCycling(false);
-                        MessageBox("CA.IsCycling : Error while cycling (1)");
-                        return TerminateCycling(false);
-                    }
-                    if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
-                        MessageBox("Couldn't get next cycle number (1)");
-                        return TerminateCycling(false);
-                    }
-                    ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>SequenceDuration_in_ms) ExpectedWaitTimeTillDataAvailableCommandToBeSent=SequenceDuration_in_ms/2;
-                    //instead of calling Sleep_ms_and_call_CA_OnIdle() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
-                    if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
-                    else Sleep_ms_and_call_CA_OnIdle(5);
+            //bool UseOptionalWait = true;
+            //if (UseOptionalWait) {
+            long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+            constexpr unsigned long MaxWaitWhile = 20;
+            unsigned long WaitWhile = 0;
+            while ((ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) && (WaitWhile < MaxWaitWhile)) { //(CycleNumber <= NextCycleNumber) {
+                WaitWhile++;
+                //check if cycling was aborted because of incorrect command
+                if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
+                    if (DidCommandErrorOccur()) return TerminateCycling(false);
+                    MessageBox("CA.IsCycling : Error while cycling (1)");
+                    return TerminateCycling(false);
                 }
-                if (MaxWaitWhile == WaitWhile) {
-                    SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
-                    CycleSuccessful = false;
+                if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
+                    MessageBox("Couldn't get next cycle number (1)");
+                    return TerminateCycling(false);
                 }
-                NextCycleNumber = CycleNumber;
+                ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+                if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>SequenceDuration_in_ms) ExpectedWaitTimeTillDataAvailableCommandToBeSent=SequenceDuration_in_ms/2;
+                //instead of calling Sleep_ms_and_call_CA_OnIdle() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
+                if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
+                else Sleep_ms_and_call_CA_OnIdle(5);
             }
+            if (MaxWaitWhile == WaitWhile) {
+                SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
+                CycleSuccessful = false;
+            }
+            NextCycleNumber = CycleNumber;
+            //}
             unsigned int Attempts = 0;
             const unsigned int MaxAttempts = 10;
             while ((!CA.DataAvailable(/* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1)) && (Attempts<MaxAttempts)) {

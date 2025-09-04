@@ -5,6 +5,7 @@
 #include <QLibrary>
 #include <QFile>
 
+
 #define USE_CA_DLL
 
 #ifdef USE_CA_DLL
@@ -220,11 +221,9 @@ private:
     AddMarkerFunc CA_DLL_AddMarker;
     HControlAPI CA_DLL_Handle;
     void Set_CA_DLL_CallsToNull();
-
 #endif
 public:
     QTelnet *telnet;
-
 public:
     bool ConnectedToLowLevelSoftware;
     bool isConnected(bool no_error_message=true) const;
@@ -307,7 +306,7 @@ private:
     bool AttemptGetCycleData(unsigned int*& buffer, unsigned long& buffer_length,  long &CycleNumber, long &LastCycleEndTime, long &LastCycleStartPreTriggerTime, bool &CycleError, QString &ErrorMessages, double timeout_in_seconds = 0);//, bool format32bit = false);
     bool AttemptGetPeriodicTriggerError(bool &b);
     bool AttemptGetSequenceDuration(double &SequenceDuration_in_ms);
-
+    void WriteTimeStamp();
 private:
     QString DebugFileDirectory;
     QFile* DebugFile;

@@ -13,6 +13,11 @@
 
 #define EnableDebug
 
+#ifdef EnableDebug
+//#define EnableTimingDebug
+#endif
+
+
 #ifndef EnableDebug
 //#define SlowDLLAccessToImproveStability
 #endif
@@ -20,6 +25,51 @@
 #ifdef SlowDLLAccessToImproveStability
 #include <QThread>
 #endif
+
+
+#ifdef EnableDebug
+#define WriteDebug(msg) \
+if (DebugTextStream) { \
+        (*DebugTextStream) << msg; \
+        DebugTextStream->flush(); \
+}
+#else
+#ifdef SlowDLLAccessToImproveStability
+//QThread::usleep(10);//usleep(50); too slow -> use nsecsElapsed, despite being busy wait
+#define WriteDebug(msg) \
+{ \
+        QElapsedTimer t; \
+        t.start();\
+        while (t.nsecsElapsed() < 5000); \
+}
+#else
+#define WriteDebug(msg)
+#endif
+#endif
+
+#ifdef EnableTimingDebug
+QTime LastTimeStamp;
+void CControlAPI::WriteTimeStamp() {
+    QTime Now = QTime::currentTime();
+    unsigned int ellapsedTime = LastTimeStamp.msecsTo(Now);
+    LastTimeStamp= Now;
+    QString buf = QString::number(ellapsedTime) ;
+    WriteDebug(buf);
+}
+
+#define MacroWriteTimestamp WriteTimeStamp();
+#define MacroWriteTimestampDot WriteDebug(".");
+
+#else
+void CControlAPI::WriteTimeStamp() {
+
+}
+
+#define MacroWriteTimestamp
+#define MacroWriteTimestampDot
+
+#endif
+
 
 extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds);
 
@@ -406,29 +456,11 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
     CA_DLL_Create(ParamFileName, true, true, true);
     CA_DLL_Handle = CA_DLL_GetInstance();
     ConnectedToLowLevelSoftware = true;
+#ifdef EnableTimingDebug
+    LastTimeStamp = QTime::currentTime();
+#endif
     return true;
 }
-
-#ifdef EnableDebug
-#define WriteDebug(msg) \
-    if (DebugTextStream) { \
-        (*DebugTextStream) << msg; \
-        DebugTextStream->flush(); \
-    } 
-#else
-#ifdef SlowDLLAccessToImproveStability
-    //QThread::usleep(10);//usleep(50); too slow -> use nsecsElapsed, despite being busy wait
-#define WriteDebug(msg) \
-    { \
-    QElapsedTimer t; \
-    t.start();\
-    while (t.nsecsElapsed() < 5000); \
-    }
-#else
-#define WriteDebug(msg)
-#endif
-#endif
-
 
 
 void CControlAPI::DisconnectFromLowLevelSoftware() {
@@ -542,6 +574,7 @@ void CControlAPI::SwitchToDirectOutputMode() {
     WriteDebug("x ")
 }
 
+
 void CControlAPI::OnIdle() {
 //if the DLL is used without a timer in the DLL kicking the DLL's OnIdle function, we need to do that
 //It's a bit cleaner if we do it from Qt, as we then never can have a conflict between code execution started by the DLL timer
@@ -551,7 +584,10 @@ void CControlAPI::OnIdle() {
 #ifdef USE_CA_DLL
     if (CA_DLL_OnIdle) {
         WriteDebug("I")
+        MacroWriteTimestamp
         CA_DLL_OnIdle();
+        MacroWriteTimestampDot
+        MacroWriteTimestamp
         WriteDebug("x")
     }
 #endif
@@ -627,12 +663,18 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
         long Timeout_in_ms = timeout_in_seconds * 1000;
         WriteDebug("D1")
         bool DataAvailable = CA_DLL_DataAvailable();
+        MacroWriteTimestampDot
+        MacroWriteTimestamp
         WriteDebug("x ")
         while ((!DataAvailable) && (WaitedForData_in_ms < Timeout_in_ms)) {
+            MacroWriteTimestamp
             Sleep_ms_and_call_CA_OnIdle(10);
             WaitedForData_in_ms += 10;
             WriteDebug("D")
+            MacroWriteTimestamp
+            MacroWriteTimestampDot
             DataAvailable = CA_DLL_DataAvailable();
+            MacroWriteTimestamp
             WriteDebug("x ")
         }
         WriteDebug(((DataAvailable) ? "d1 " : "d0 "))
@@ -763,11 +805,14 @@ bool CControlAPI::GetCycleData(unsigned int*& buffer, unsigned long& buffer_leng
         unsigned char* raw_buffer = nullptr;
         const char* error_cstr = nullptr;
         unsigned long buffer_length_in_bytes;
-        WriteDebug("GCD")
+        WriteDebug("GC")
+        MacroWriteTimestamp
+        WriteDebug("D")
         bool result = CA_DLL_GetCycleData(&raw_buffer, &buffer_length_in_bytes, &CycleNumber,
                                           reinterpret_cast<unsigned long*>(&LastCycleEndTime),
                                           reinterpret_cast<unsigned long*>(&LastCycleStartPreTriggerTime),
                                           &CycleError, &error_cstr);
+        MacroWriteTimestamp
         WriteDebug("x\n")
         buffer = reinterpret_cast<unsigned int*>(raw_buffer);
         if (error_cstr) ErrorMessages = QString::fromUtf8(error_cstr);
