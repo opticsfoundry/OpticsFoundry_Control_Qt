@@ -71,7 +71,7 @@ void CControlAPI::WriteTimeStamp() {
 #endif
 
 
-extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds, int MaxNrLoops);
+extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds);
 
 void ErrorNotYetImplemented() {
     QMessageBox msgBox;
@@ -668,7 +668,7 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
         WriteDebug("x ")
         while ((!DataAvailable) && (WaitedForData_in_ms < Timeout_in_ms)) {
             MacroWriteTimestamp
-            Sleep_ms_and_call_CA_OnIdle(10, 1); //max one loop
+            Sleep_ms_and_call_CA_OnIdle(10);
             WaitedForData_in_ms += 10;
             WriteDebug("D")
             MacroWriteTimestamp

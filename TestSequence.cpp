@@ -27,22 +27,20 @@ const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryCon
 const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
 #endif
 
-void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds, int MaxNrLoops = 500)
+void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     int remaining = 0;
+    int MaxNrLoops = delay_in_milli_seconds / 10 + 1;
     int NrLoops = 0;
     do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         //We need to call the API's idle function regularly if we want it to cycle automatically
         CA.OnIdle();
-        if (MaxNrLoops==1) QThread::msleep(delay_in_milli_seconds);
-        else {
+        remaining = QTime::currentTime().msecsTo(dieTime);
+        if (remaining>0) {
+            QThread::msleep(10);
             remaining = QTime::currentTime().msecsTo(dieTime);
-            if (remaining>0) {
-                QThread::msleep( (remaining>10) ? 10 : remaining);
-                remaining = QTime::currentTime().msecsTo(dieTime);
-            }
         }
         NrLoops++;
     } while ((remaining > 0) && (NrLoops<MaxNrLoops));
@@ -578,9 +576,9 @@ bool CycleSequenceWithIndividualCommandUpdate() {
         //If FPGA needs to wait longer than PeriodicTriggerAllowedWaitTime_in_ms, the CycleError flag is set high. That flag is retrieved with GetCycleData().
         CA.SetPeriodicTrigger(PeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms);
 
-        long NextCycleNumber = 0;
-        unsigned long CycleNrFromBuffer;
-        long CycleNumberFromCADataRead;
+        long NextCycleNumber = 1;
+        unsigned long CycleNrFromBuffer = 0;
+        long CycleNumberFromCADataRead = 0;
         long TimeTillNextCycleStart_in_ms = 0;
         long ReadoutPreTriggerTime_in_ms = 100; //time
         long QtReadoutPreTriggerTime_in_ms = 200;
