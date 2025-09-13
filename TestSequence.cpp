@@ -27,26 +27,28 @@ const QString DebugFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryCon
 const QString LogFileDirectory = "D:\\Florian\\OpticsFoundry\\OpticsFoundryControl\\Data\\";
 #endif
 
-void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds)
+void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds, int MaxNrLoops = 500)
 {
     QTime dieTime= QTime::currentTime().addMSecs(delay_in_milli_seconds);
     int remaining = 0;
-    constexpr int MaxNrLoops = 500;
     int NrLoops = 0;
     do {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         //We need to call the API's idle function regularly if we want it to cycle automatically
         CA.OnIdle();
-        remaining = QTime::currentTime().msecsTo(dieTime);
-        if (remaining>0) {
-            QThread::msleep( (remaining>10) ? 10 : remaining);
+        if (MaxNrLoops==1) QThread::msleep(delay_in_milli_seconds);
+        else {
             remaining = QTime::currentTime().msecsTo(dieTime);
+            if (remaining>0) {
+                QThread::msleep( (remaining>10) ? 10 : remaining);
+                remaining = QTime::currentTime().msecsTo(dieTime);
+            }
         }
         NrLoops++;
     } while ((remaining > 0) && (NrLoops<MaxNrLoops));
 }
 
-void SetStatusTextAndLog(QString aMessage) {
+void SetStatusTextAndLog(QString aMessage, bool AddNewLine = true) {
     static QString LogFileName = "";
     if (LogFileName=="") {
         // Format: YYYY-MM-DD_hh-mm-ss.dat
@@ -56,7 +58,8 @@ void SetStatusTextAndLog(QString aMessage) {
     QFile file(LogFileName);
     if (file.open(QIODevice::Append)) {
         QTextStream stream(&file);
-        stream << aMessage << "\n";
+        stream << aMessage;
+        if (AddNewLine) stream << "\n";
         file.close();
     }
     TelnetTester->setStatusText(aMessage, true);
@@ -261,7 +264,7 @@ void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
         //this is useful for debugging, but not needed for normal operation
         //The next command will be replaced in CycleSequenceWithIndividualCommandUpdate() with a command that writes the cycle number into the input buffer.
         //This is only done to identify which dataset belongs to which run, i.e. to detect cycle slips.
-        CA.Command("WriteInputMemory(2);");
+        CA.Command("WriteInputMemory(1);");
         ModifyCodeLineNr2 = CA.GetLastCommandLineNumber();
         //More general form of memory command:
         CA.Command("WriteInputMemory(1, 1, 0);"); //WriteInputMemory(unsigned long input_buf_mem_data, bool write_next_address = 1, unsigned long input_buf_mem_address = 0)
@@ -522,15 +525,16 @@ bool StopCyclingButtonPressed() {
     return ok;
 }
 
+
 //function called by GUI button
 bool CycleSequenceWithIndividualCommandUpdate() {
-    //CycleSequenceWithIndividualCommandUpdate() is similar to CycleSequence, but sequence only programmed once. 
+    //CycleSequenceWithIndividualCommandUpdate() is similar to CycleSequence, but sequence only programmed once.
     //From then on only desire command changes are scheduled for certain run numbers.
     //In AQuRA, the DDS frequency that controls the clock laser probe frequency is updated.
     if (BlockButtons) return false;
     //Below in this procedure, we use Sleep_ms_and_call_CA_OnIdle(), which calls  QCoreApplication::processEvents().
-    //If GUI buttons are pressed, processEvents() could create calls to routines that execute other experimental sequences, 
-    //which would create a mess with the sequence executed here. 
+    //If GUI buttons are pressed, processEvents() could create calls to routines that execute other experimental sequences,
+    //which would create a mess with the sequence executed here.
     //To avoid this, we block these procedures, which is eseentially the same as blocking the buttons on the GUI.
     BlockButtons = true;
     //if the synchronization to FPGA is lost we set LittleCycle = false.
@@ -605,11 +609,11 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             //The following while statement is there to reduce TCP/IP communication. If the amount of communication is no concern it can be skipped.
             //bool UseOptionalWait = true;
             //if (UseOptionalWait) {
-            long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-            constexpr unsigned long MaxWaitWhile = 20;
-            unsigned long WaitWhile = 0;
-            while ((ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) && (WaitWhile < MaxWaitWhile)) { //(CycleNumber <= NextCycleNumber) {
-                WaitWhile++;
+            //long ExpectedWaitTimeTillDataAvailableCommandToBeSent = SequenceDuration_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+            //constexpr unsigned long MaxWaitWhile = 20;
+            //unsigned long WaitWhile = 0;
+            //while ((ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) && (WaitWhile < MaxWaitWhile)) { //(CycleNumber <= NextCycleNumber) {
+                //WaitWhile++;
                 //check if cycling was aborted because of incorrect command
                 if (!CA.IsCycling(/* timeout_in_seconds*/ MaxSequenceDuration_in_s)) {
                     if (DidCommandErrorOccur()) return TerminateCycling(false);
@@ -620,16 +624,16 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                     MessageBox("Couldn't get next cycle number (1)");
                     return TerminateCycling(false);
                 }
-                ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
-                if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>SequenceDuration_in_ms) ExpectedWaitTimeTillDataAvailableCommandToBeSent=SequenceDuration_in_ms/2;
+                //ExpectedWaitTimeTillDataAvailableCommandToBeSent = TimeTillNextCycleStart_in_ms - ReadoutPreTriggerTime_in_ms - QtReadoutPreTriggerTime_in_ms;
+                //if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>SequenceDuration_in_ms) ExpectedWaitTimeTillDataAvailableCommandToBeSent=SequenceDuration_in_ms/2;
                 //instead of calling Sleep_ms_and_call_CA_OnIdle() you can also execute your own code for up to ExpectedWaitTimeTillDataAvailableCommandToBeSent;
-                if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
-                else Sleep_ms_and_call_CA_OnIdle(5);
-            }
-            if (MaxWaitWhile == WaitWhile) {
-                SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
-                CycleSuccessful = false;
-            }
+                //if (ExpectedWaitTimeTillDataAvailableCommandToBeSent>20) Sleep_ms_and_call_CA_OnIdle(ExpectedWaitTimeTillDataAvailableCommandToBeSent);
+                //else Sleep_ms_and_call_CA_OnIdle(5);
+            //}
+            //if (MaxWaitWhile == WaitWhile) {
+            //   SetStatusTextAndLog("error: MaxWaitWhile == WaitWhile");
+            //    CycleSuccessful = false;
+            //}
             NextCycleNumber = CycleNumber;
             //}
             unsigned int Attempts = 0;
@@ -648,16 +652,19 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 return TerminateCycling(false);
             }
             GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
-            if ((CycleNumber+1) !=  CycleNumberFromCADataRead) {
-                //we are out of sync with the low-level software (too fast). To get back in sync, wait a bit.
-                Sleep_ms_and_call_CA_OnIdle(SequenceDuration_in_ms/2);
-            }
+            //if ((CycleNumber+1) !=  CycleNumberFromCADataRead) { //Why is this always true?
+            //we are out of sync with the low-level software (too fast). To get back in sync, wait a bit.
+            //SetStatusTextAndLog("error: (CycleNumber+1) !=  CycleNumberFromCADataRead");
+            Sleep_ms_and_call_CA_OnIdle(50);//SequenceDuration_in_ms/10); //Why is this needed?
+            //}
             //if there is more data readily available, then download it. But don't wait for cycle to finish.
             unsigned long GetDataWhileLoopCount = 0;
             constexpr unsigned long MaxGetDataWhileLoopCount = 20;
             while (CA.DataAvailable(/* timeout_in_seconds*/ 0) && Cycling && LittleCycle && (GetDataWhileLoopCount<MaxGetDataWhileLoopCount)) {
                 //The first cycle used an undefined MOT loading time. Ignore that run's data.
+                SetStatusTextAndLog("warning: more data available [" + QString::number(GetDataWhileLoopCount) + "]");
                 GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);//, LastCycleEndTime);//, /*timeout_in_seconds*/ MaxSequenceDuration_in_s);
+                Sleep_ms_and_call_CA_OnIdle(50); //Why is this needed?
                 //NextCycleReadoutStartTime = LastCycleEndTime + SequenceDuration_in_ms - ReadoutPreTriggerTime;
                 GetDataWhileLoopCount++;
             }
@@ -675,10 +682,13 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             constexpr unsigned long MaxResyncWhileLoopCount = 20;
             while ((CycleNumber <= NextCycleNumber) && Cycling && LittleCycle && (ResyncWhileLoopCount<MaxResyncWhileLoopCount)) {
                 //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
+                SetStatusTextAndLog(".", /*AddNewLine*/ false);
                 Sleep_ms_and_call_CA_OnIdle(10);
                 //There might be still data from a skipped cycle that now has become available
-                if (CA.DataAvailable(/* timeout_in_seconds*/ 0))
+                if (CA.DataAvailable(/* timeout_in_seconds*/ 0)) {
+                    SetStatusTextAndLog("warning: more data available 2");
                     GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
+                }
                 if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, CycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
                     MessageBox("Couldn't get next cycle number (3)");
                     return TerminateCycling(false);
@@ -726,8 +736,6 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     Cycling = false;
     return ret;
 }
-
-
 
 //
 //debug tool

@@ -14,7 +14,7 @@
 #define EnableDebug
 
 #ifdef EnableDebug
-//#define EnableTimingDebug
+#define EnableTimingDebug
 #endif
 
 
@@ -51,7 +51,7 @@ if (DebugTextStream) { \
 QTime LastTimeStamp;
 void CControlAPI::WriteTimeStamp() {
     QTime Now = QTime::currentTime();
-    unsigned int ellapsedTime = LastTimeStamp.msecsTo(Now);
+    int ellapsedTime = LastTimeStamp.msecsTo(Now);
     LastTimeStamp= Now;
     QString buf = QString::number(ellapsedTime) ;
     WriteDebug(buf);
@@ -71,7 +71,7 @@ void CControlAPI::WriteTimeStamp() {
 #endif
 
 
-extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds);
+extern void Sleep_ms_and_call_CA_OnIdle(int delay_in_milli_seconds, int MaxNrLoops);
 
 void ErrorNotYetImplemented() {
     QMessageBox msgBox;
@@ -668,7 +668,7 @@ bool CControlAPI::DataAvailable(double timeout_in_seconds) {
         WriteDebug("x ")
         while ((!DataAvailable) && (WaitedForData_in_ms < Timeout_in_ms)) {
             MacroWriteTimestamp
-            Sleep_ms_and_call_CA_OnIdle(10);
+            Sleep_ms_and_call_CA_OnIdle(10, 1); //max one loop
             WaitedForData_in_ms += 10;
             WriteDebug("D")
             MacroWriteTimestamp
