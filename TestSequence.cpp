@@ -661,35 +661,39 @@ bool CycleSequenceWithIndividualCommandUpdate() {
                 CycleSuccessful = false;
             }
             YourOwnCode();
-            long ExpectedNextCycleNumber = CycleNumber + 1;
+
             //get number of next cycle (just in case too much time elapsed and the DLL did run multiple identical cycles)
             if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, NextCycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
                 MessageBox("Couldn't get next cycle number (2)");
                 return TerminateCycling(false);
             }
+
+
             //In case the DLL is not ready for the next cycle, wait a bit. This should normally not happen.
-            unsigned long ResyncWhileLoopCount = 0;
-            constexpr unsigned long MaxResyncWhileLoopCount = 1000;
-            if (NextCycleNumber < ExpectedNextCycleNumber) SetStatusTextAndLog("warning: need to wait for next cycle", /*AddNewLine*/ true);
-            while ((NextCycleNumber < ExpectedNextCycleNumber) && Cycling && LittleCycle && (ResyncWhileLoopCount<MaxResyncWhileLoopCount)) {
-                //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
-                SetStatusTextAndLog(".", /*AddNewLine*/ false);
-                Sleep_ms_and_call_CA_OnIdle(10);
+            //long ExpectedNextCycleNumber = CycleNumber + 1;
+            //unsigned long ResyncWhileLoopCount = 0;
+            //constexpr unsigned long MaxResyncWhileLoopCount = 1000;
+            //if (NextCycleNumber < ExpectedNextCycleNumber) SetStatusTextAndLog("warning: need to wait for next cycle", /*AddNewLine*/ true);
+            //while ((NextCycleNumber < ExpectedNextCycleNumber) && Cycling && LittleCycle && (ResyncWhileLoopCount<MaxResyncWhileLoopCount)) {
+            //    //The low level software is not yet ready to receive updated commands for the next cycle. Give it a bit of time.
+            //    SetStatusTextAndLog(".", /*AddNewLine*/ false);
+            //    Sleep_ms_and_call_CA_OnIdle(10);
                 //There might be still data from a skipped cycle that now has become available. This data likely is still a repeat of the last cycle.
-                if (CA.DataAvailable(/* timeout_in_seconds*/ 0)) {
-                    SetStatusTextAndLog("warning: more data available 2");
-                    GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
-                }
-                if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, NextCycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
-                    MessageBox("Couldn't get next cycle number (3)");
-                    return TerminateCycling(false);
-                }
-                ResyncWhileLoopCount++;
-            }
-            if (ResyncWhileLoopCount == MaxResyncWhileLoopCount) {
-                SetStatusTextAndLog("error: ResyncWhileLoopCount == MaxResyncWhileLoopCount");
-                CycleSuccessful = false;
-            }
+            //    if (CA.DataAvailable(/* timeout_in_seconds*/ 0)) {
+            //        SetStatusTextAndLog("warning: more data available 2");
+            //        GetCycleData(take_photodiode_data, TimeTillNextCycleStart_in_ms, CycleNumber, CycleNumberFromCADataRead, CycleNrFromBuffer);
+            //    }
+            //    if (!CA.GetNextCycleStartTimeAndNumber(TimeTillNextCycleStart_in_ms, NextCycleNumber, /* timeout_in_seconds*/ MaxSequenceDuration_in_s + 1000)) {
+            //        MessageBox("Couldn't get next cycle number (3)");
+            //        return TerminateCycling(false);
+            //    }
+            //    ResyncWhileLoopCount++;
+            //}
+            //if (ResyncWhileLoopCount == MaxResyncWhileLoopCount) {
+            //    SetStatusTextAndLog("error: ResyncWhileLoopCount == MaxResyncWhileLoopCount");
+            //    CycleSuccessful = false;
+            //}
+
 
             CycleNumber = NextCycleNumber;
             //Next you can specify updated commands for the next several cycles
