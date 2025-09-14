@@ -709,6 +709,10 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             CA.ReplaceCommand(NextCycleNumber, ModifyCodeLineNr2, command);
             //you can also update commands of cycles that lie more than one in the future
             //CA.ReplaceCommand(NextCycleNumber+2, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(202);");
+            //the new sequence parameters have been sent. We can trigger the transfer of the next sequence to the FPGA.
+            //Triggering is optional, as it will also happen in an OnIdle call once the soft pre trigger time is reached.
+            //However, its better to trigger as early as possible, in order to have enough time for the transfer before the next cycle must start.
+            CA.Trigger();
             if (CycleSuccessful) {
                 QTime now = QTime::currentTime();
                 LastSuccessfulCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);

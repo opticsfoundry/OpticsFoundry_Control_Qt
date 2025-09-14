@@ -90,6 +90,7 @@ typedef const char* (*GetErrorFunc)();
 typedef void (*StoreSequenceInMemoryFunc)(bool);
 typedef void (*SwitchToDirectOutputModeFunc)();
 typedef void (*OnIdleFunc)();
+typedef void (*TriggerFunc)();
 typedef bool (*StartSequenceFunc)(bool);
 typedef bool (*IsSequenceRunningFunc)();
 typedef long (*GetLastCommandLineNumberFunc)();
@@ -165,6 +166,7 @@ private:
     StoreSequenceInMemoryFunc CA_DLL_StoreSequenceInMemory;
     SwitchToDirectOutputModeFunc CA_DLL_SwitchToDirectOutputMode;
     OnIdleFunc CA_DLL_OnIdle;
+    TriggerFunc CA_DLL_Trigger;
     StartSequenceFunc CA_DLL_StartSequence;
     IsSequenceRunningFunc CA_DLL_IsSequenceRunning;
     GetLastCommandLineNumberFunc CA_DLL_GetLastCommandLineNumber;
@@ -249,6 +251,7 @@ public:
     void ProgramSequence(); //ok
     void SwitchToDirectOutputMode(); //ok
     void OnIdle();
+    void Trigger();
     bool ProgramInterlockSequence(); //next version
     void ReplaceCommand(unsigned long cycle_number, unsigned int command_line_nr, const char* new_command); //next version
     bool StartSequence(bool ShowRunProgressDialog = false, double timeout_in_seconds = 10); //ok

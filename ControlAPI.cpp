@@ -132,6 +132,7 @@ void CControlAPI::Set_CA_DLL_CallsToNull() {
     CA_DLL_StoreSequenceInMemory = NULL;
     CA_DLL_SwitchToDirectOutputMode = NULL;
     CA_DLL_OnIdle = NULL;
+    CA_DLL_Trigger = NULL;
     CA_DLL_StartSequence = NULL;
     CA_DLL_IsSequenceRunning = NULL;
     CA_DLL_GetLastCommandLineNumber = NULL;
@@ -300,6 +301,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
     CA_DLL_StoreSequenceInMemory = (StoreSequenceInMemoryFunc)CA_DLL_Lib->resolve("ControlAPI_StoreSequenceInMemory");
     CA_DLL_SwitchToDirectOutputMode = (SwitchToDirectOutputModeFunc)CA_DLL_Lib->resolve("ControlAPI_SwitchToDirectOutputMode");
     CA_DLL_OnIdle = (OnIdleFunc)CA_DLL_Lib->resolve("ControlAPI_OnIdle");
+    CA_DLL_Trigger = (TriggerFunc)CA_DLL_Lib->resolve("ControlAPI_Trigger");
     CA_DLL_StartSequence = (StartSequenceFunc)CA_DLL_Lib->resolve("ControlAPI_StartSequence");
     CA_DLL_IsSequenceRunning = (IsSequenceRunningFunc)CA_DLL_Lib->resolve("ControlAPI_IsSequenceRunning");
     CA_DLL_GetLastCommandLineNumber = (GetLastCommandLineNumberFunc)CA_DLL_Lib->resolve("ControlAPI_GetLastCommandLineNumber");
@@ -366,6 +368,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
         !CA_DLL_StoreSequenceInMemory ||
         !CA_DLL_SwitchToDirectOutputMode ||
         !CA_DLL_OnIdle ||
+        !CA_DLL_Trigger ||
         !CA_DLL_StartSequence ||
         !CA_DLL_IsSequenceRunning ||
         !CA_DLL_GetLastCommandLineNumber ||
@@ -586,6 +589,20 @@ void CControlAPI::OnIdle() {
         WriteDebug("I")
         MacroWriteTimestamp
         CA_DLL_OnIdle();
+        MacroWriteTimestampDot
+        MacroWriteTimestamp
+        WriteDebug("x")
+    }
+#endif
+}
+
+void CControlAPI::Trigger() {
+//immediately trigger the transfer of the next sequence to the FPGA
+#ifdef USE_CA_DLL
+    if (CA_DLL_Trigger) {
+        WriteDebug("T")
+        MacroWriteTimestamp
+        CA_DLL_Trigger();
         MacroWriteTimestampDot
         MacroWriteTimestamp
         WriteDebug("x")
@@ -1121,6 +1138,10 @@ void CControlAPI::SwitchToDirectOutputMode() {
 
 void CControlAPI::OnIdle() {
     telnet->writeString("OnIdle");
+}
+
+void CControlAPI::Trigger() {
+    telnet->writeString("Trigger");
 }
 
 bool CControlAPI::StartSequence(bool ShowRunProgressDialog, double timeout_in_seconds) {
