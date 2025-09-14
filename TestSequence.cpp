@@ -475,7 +475,7 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     }
     PreviousFPGASystemTime = FPGASystemTime;
     char out_buf[100];
-    sprintf(out_buf, "%4u %3u %3u %3u %3u %3.0f %4li %llu %03X %08X f%03u rc%u %u",
+    sprintf(out_buf, "%4u %4u %4u %4u %4u %4.0f %4li %llu %03X %08X f%03u rc%u %u",
             CycleNrFromBuffer,
             BufferLength,
             LastCycleStartPreTriggerTime - PreviousLastCycleStartPreTriggerTime,
@@ -697,7 +697,8 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             //A code line can consist of several ;-separated commands
             //You can store up to 32 replacement commands.
             //This limit can easily be increased by increasing const unsigned int ReplaceCommandListLength = 32; in ControlAPI.h in the Visual C++ Control code
-
+            //This update happens during the blue MOT stage.
+            //NextCycleNumber refers to the cycle that starts with the red MOT stage belonging to the current blue MOT.
             CA.ReplaceCommand(NextCycleNumber, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(201);");
             char command[100];
             sprintf(command, "WriteInputMemory(%u);", NextCycleNumber);
