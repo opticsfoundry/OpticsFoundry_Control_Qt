@@ -132,6 +132,7 @@ void CControlAPI::Set_CA_DLL_CallsToNull() {
     CA_DLL_StoreSequenceInMemory = NULL;
     CA_DLL_SwitchToDirectOutputMode = NULL;
     CA_DLL_OnIdle = NULL;
+    CA_DLL_SwitchDebugMode = NULL;
     CA_DLL_Trigger = NULL;
     CA_DLL_StartSequence = NULL;
     CA_DLL_IsSequenceRunning = NULL;
@@ -301,6 +302,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
     CA_DLL_StoreSequenceInMemory = (StoreSequenceInMemoryFunc)CA_DLL_Lib->resolve("ControlAPI_StoreSequenceInMemory");
     CA_DLL_SwitchToDirectOutputMode = (SwitchToDirectOutputModeFunc)CA_DLL_Lib->resolve("ControlAPI_SwitchToDirectOutputMode");
     CA_DLL_OnIdle = (OnIdleFunc)CA_DLL_Lib->resolve("ControlAPI_OnIdle");
+    CA_DLL_SwitchDebugMode = (SwitchDebugModeFunc)CA_DLL_Lib->resolve("ControlAPI_SwitchDebugMode");
     CA_DLL_Trigger = (TriggerFunc)CA_DLL_Lib->resolve("ControlAPI_Trigger");
     CA_DLL_StartSequence = (StartSequenceFunc)CA_DLL_Lib->resolve("ControlAPI_StartSequence");
     CA_DLL_IsSequenceRunning = (IsSequenceRunningFunc)CA_DLL_Lib->resolve("ControlAPI_IsSequenceRunning");
@@ -368,6 +370,7 @@ API_EXPORT void ControlAPI_AddMarker(unsigned char marker);
         !CA_DLL_StoreSequenceInMemory ||
         !CA_DLL_SwitchToDirectOutputMode ||
         !CA_DLL_OnIdle ||
+        !CA_DLL_SwitchDebugMode ||
         !CA_DLL_Trigger ||
         !CA_DLL_StartSequence ||
         !CA_DLL_IsSequenceRunning ||
@@ -577,6 +580,15 @@ void CControlAPI::SwitchToDirectOutputMode() {
     WriteDebug("x ")
 }
 
+
+void CControlAPI::SwitchDebugMode(bool OnOff, bool DebugTimingOnOff) {
+    
+    if (CA_DLL_SwitchDebugMode) {
+        WriteDebug("DM")
+        CA_DLL_SwitchDebugMode(OnOff, DebugTimingOnOff);
+        WriteDebug("x ")
+    }
+}
 
 void CControlAPI::OnIdle() {
 //if the DLL is used without a timer in the DLL kicking the DLL's OnIdle function, we need to do that
@@ -953,10 +965,6 @@ void CControlAPI::StopRamps() {
     if (CA_DLL_StopRamps)
         CA_DLL_StopRamps();
     WriteDebug("x ")
-}
-
-void CControlAPI::SwitchDebugMode(bool OnOff, bool DebugTimingOnOff) {
-    // If this is supported by the DLL, add pointer and call here
 }
 
 bool CControlAPI::WriteToSerial(unsigned int port_nr, unsigned char* command, unsigned long length) {

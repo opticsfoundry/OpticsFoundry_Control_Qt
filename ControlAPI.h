@@ -91,6 +91,7 @@ typedef void (*StoreSequenceInMemoryFunc)(bool);
 typedef void (*SwitchToDirectOutputModeFunc)();
 typedef void (*OnIdleFunc)();
 typedef void (*TriggerFunc)();
+typedef bool  (*SwitchDebugModeFunc)(bool, bool);
 typedef bool (*StartSequenceFunc)(bool);
 typedef bool (*IsSequenceRunningFunc)();
 typedef long (*GetLastCommandLineNumberFunc)();
@@ -166,6 +167,7 @@ private:
     StoreSequenceInMemoryFunc CA_DLL_StoreSequenceInMemory;
     SwitchToDirectOutputModeFunc CA_DLL_SwitchToDirectOutputMode;
     OnIdleFunc CA_DLL_OnIdle;
+    SwitchDebugModeFunc CA_DLL_SwitchDebugMode;
     TriggerFunc CA_DLL_Trigger;
     StartSequenceFunc CA_DLL_StartSequence;
     IsSequenceRunningFunc CA_DLL_IsSequenceRunning;
