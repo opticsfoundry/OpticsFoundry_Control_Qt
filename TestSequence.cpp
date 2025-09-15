@@ -613,7 +613,7 @@ bool CycleSequenceWithIndividualCommandUpdate() {
         //In order for the Visual Studio's cycle start time and the FPGA's cycle start time to remain in sync:
         //at the end of each cycle, Visual Studio measures the end time and calculates the time at which the last periodic trigger must have happened.
 
-        if (!CA.StartCycling(ReadoutPreTriggerTime_in_ms, /*soft_pre_trigger_in_ms*/ SoftPreTriggerTime_in_ms, /*TransmitOnlyDifferenceBetweenCommandSequenceIfPossible*/ true, /*diplay_progress_dialog*/ false)) { //this starts cycle 0
+        if (!CA.StartCycling(ReadoutPreTriggerTime_in_ms, /*soft_pre_trigger_in_ms*/ SoftPreTriggerTime_in_ms, /*TransmitOnlyDifferenceBetweenCommandSequenceIfPossible*/ true, /*DoWindowsEnterCriticalPriorityMode*/true, /*diplay_progress_dialog*/ false)) { //this starts cycle 0
             if (DidCommandErrorOccur()) return TerminateCycling(false);
             MessageBox("CycleSequence couldn't start");
             return TerminateCycling(false);

@@ -658,10 +658,10 @@ void CControlAPI::ResetCycleNumber() {
     WriteDebug("x ")
 }
 
-bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool diplay_progress_dialog) {
+bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool DoWindowsEnterCriticalPriorityMode, bool diplay_progress_dialog) {
     if (CA_DLL_StartCycling) {
         WriteDebug("StartCycling")
-        bool ret = CA_DLL_StartCycling(readout_pre_trigger_in_ms, soft_pre_trigger_in_ms, TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, diplay_progress_dialog);
+        bool ret = CA_DLL_StartCycling(readout_pre_trigger_in_ms, soft_pre_trigger_in_ms, TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, DoWindowsEnterCriticalPriorityMode, diplay_progress_dialog);
         WriteDebug("x ")
         return ret;
     }
@@ -1317,11 +1317,11 @@ void CControlAPI::StopRamps() {
 
 
 
-bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool display_progress_dialog) {
+bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool DoWindowsEnterCriticalPriorityMode, bool display_progress_dialog) {
     unsigned int attempts = 0;
     bool success = false;
     bool b;
-    while ((attempts<10) && (!(success = AttemptStartCycling(b, readout_pre_trigger_in_ms, soft_pre_trigger_in_ms, TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, display_progress_dialog)))) {
+    while ((attempts<10) && (!(success = AttemptStartCycling(b, readout_pre_trigger_in_ms, soft_pre_trigger_in_ms, TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, DoWindowsEnterCriticalPriorityMode, display_progress_dialog)))) {
         telnet->disconnectFromRemote();
         Sleep_ms_and_process_Qt_events(1000);
         attempts++;
@@ -1331,11 +1331,12 @@ bool CControlAPI::StartCycling(long readout_pre_trigger_in_ms, long soft_pre_tri
 }
 
 
-bool CControlAPI::AttemptStartCycling(bool &b, long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool display_progress_dialog) {
+bool CControlAPI::AttemptStartCycling(bool &b, long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool DoWindowsEnterCriticalPriorityMode, bool display_progress_dialog) {
     telnet->writeString("StartCycling");
     telnet->writeLong(readout_pre_trigger_in_ms);
     telnet->writeLong(soft_pre_trigger_in_ms);
     telnet->writeBool(TransmitOnlyDifferenceBetweenCommandSequenceIfPossible);
+    telnet->writeBool(DoWindowsEnterCriticalPriorityMode);
     telnet->writeBool(display_progress_dialog);
     return telnet->readBool(b, telnet->standard_timeout_in_seconds);
 }

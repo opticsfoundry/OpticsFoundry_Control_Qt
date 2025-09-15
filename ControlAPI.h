@@ -106,7 +106,7 @@ typedef void  (*ReplaceCommandForNextCycleFunc)(unsigned int, const char*);
 typedef void  (*ReplaceCommandsForNextCycleFunc)();
 typedef void  (*ResetCommandListFunc)();
 typedef bool  (*AssembleSequenceListFromMemoryFunc)();
-typedef bool  (*StartCyclingFunc)(long, long, bool, bool);
+typedef bool  (*StartCyclingFunc)(long, long, bool, bool, bool);
 typedef void  (*StopCyclingFunc)();
 typedef bool  (*IsCyclingFunc)();
 typedef bool  (*DataAvailableFunc)();
@@ -258,7 +258,7 @@ public:
     void ReplaceCommand(unsigned long cycle_number, unsigned int command_line_nr, const char* new_command); //next version
     bool StartSequence(bool ShowRunProgressDialog = false, double timeout_in_seconds = 10); //ok
     void ResetCycleNumber();
-    bool StartCycling(long readout_pre_trigger_in_ms = 100, long soft_pre_trigger_in_ms = 0, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible = false, bool diplay_progress_dialog = false); //ok
+    bool StartCycling(long readout_pre_trigger_in_ms = 100, long soft_pre_trigger_in_ms = 0, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible = false, bool DoWindowsEnterCriticalPriorityMode = false, bool diplay_progress_dialog = false); //ok
     void StopCycling(); //ok
     bool IsCycling(double timeout_in_seconds = 0); //ok
     bool DataAvailable(double timeout_in_seconds = 0);
@@ -300,7 +300,7 @@ private:
     bool AttemptDidCommandErrorOccur(long& ErrorLineNr, QString& CodeWithError, double timeout_in_seconds = 0);
     long AttemptGetLastCommandLineNumber(long &l);
     bool AttemptStartSequence(bool &b, bool ShowRunProgressDialog, double timeout_in_seconds);
-    bool AttemptStartCycling(bool &b, long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool display_progress_dialog);
+    bool AttemptStartCycling(bool &b, long readout_pre_trigger_in_ms, long soft_pre_trigger_in_ms, bool TransmitOnlyDifferenceBetweenCommandSequenceIfPossible, bool DoWindowsEnterCriticalPriorityMode, bool display_progress_dialog);
     bool AttemptIsCycling(bool &b, double timeout_in_seconds=0);
     bool AttemptDataAvailable(bool &b, double timeout_in_seconds);
     bool AttemptGetNextCycleStartTimeAndNumber(long & TimeTillNextCycleStart_in_ms, long & NextCycleNumber, double timeout_in_seconds);
