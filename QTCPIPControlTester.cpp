@@ -73,7 +73,9 @@ void QTelnetTester::setStatusText(const QString &msg, bool onQTelnetTester, bool
 			addText("\n", 1);
 	}
     if (ui) ui->statusBar->showMessage(msg);
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+    //don't waste time here, as we might have been called from a time critical part of the code
+    //processEvents will be called in the next OnIdle().
+    //QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 }
 
 void QTelnetTester::onCommand(const QString &cmd)
