@@ -224,6 +224,7 @@ void SaveInputDataToFile(QString filename, unsigned int* buffer, unsigned long b
 
 long ModifyCodeLineNr1 = 0;
 long ModifyCodeLineNr2 = 0;
+long ModifyCodeLineNr3 = 0;
 void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
     //Starting point of sequence: end of MOT loading
     //end point of sequence: just after start of MOT loading
@@ -247,7 +248,7 @@ void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
     //The main application of this technique is to update the frequency of the clock laser probe beam.
     ModifyCodeLineNr1 = CA.GetLastCommandLineNumber();
     
-    CA.Command("Wait(10);");
+    CA.Command("Wait(20);");
     //Message("Modify code line number: "+ QString::number(ModifyCodeLineNr));
     if (take_photodiode_data)  {
         //The FPGA input BRAM (2048 32-bit words) has to periodically copied into DDR by the ZYNQ's CPU (DMA is used for sequence output; too complicated to mesh two DMA transfers).
@@ -305,9 +306,11 @@ void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
     CA.Command("Ramp(\"SetFrequencyBlueMOTDPAOM\", LastValue, 210, 100, 1);"); //Ramp(unsigned char* output_name, double start_value /* use LAST_VALUE for last value */, double end_value, double ramp_time_in_ms, double timestep_in_ms = 0.1)
     CA.Command("WaitTillRampsEnd();");
     CA.Command("SetFrequencyBlueMOTDPAOM(210);");
-    CA.Command("Wait(10);");
+    CA.Command("Wait(0);");
+    ModifyCodeLineNr3 = CA.GetLastCommandLineNumber();
     CA.Command("SetFrequencyBlueMOTDPAOM(201);");
-    CA.Command("WriteSystemTimeToInputMemory();Wait(0.001);"); //Just for testing, we note in the input buffer how long the sequence took
+    //We note in the input buffer how long the sequence took. We'll use this time to check if the cycle time was ok.
+    CA.Command("WriteSystemTimeToInputMemory();Wait(0.001);"); 
     //ToDo: add commands needed to start MOT loading
     //end point of sequence: just after start of MOT loading
 }
@@ -457,8 +460,11 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     unsigned long FPGASystemTimeLow = Buffer[2];
     unsigned long FPGASystemTimeHigh = Buffer[3];
     unsigned long long FPGASystemTime = ((unsigned long long*)Buffer)[1]; // in units of the clock period, i.e. usually 10ns
+    //unsigned long long FPGASystemTimeAtSequenceEnd = ((unsigned long long*)Buffer)[BufferLength/2-2]; // in units of the clock period, i.e. usually 10ns
     CycleNrFromBuffer = Buffer[4];
     double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
+    //We check if the MOT loading time was ok. 
+    //For that, PeriodicTriggerPeriod_in_ms must contain the duration of the previous sequence plus the desired MOT loading time.
     unsigned long long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
     if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
         ErrorMessages+= " Overtime.";
@@ -478,7 +484,7 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     }
     PreviousFPGASystemTime = FPGASystemTime;
     char out_buf[100];
-    sprintf(out_buf, "%4u %4u %4u %4u %4u %4.0f %4li %llu %03X %08X f%03u rc%u %u",
+    sprintf(out_buf, "%4u %4u %4u %4u %4u %4.0f %4li %10llu %03X %08X f%03u rc%u %u",
             CycleNrFromBuffer,
             BufferLength,
             LastCycleStartPreTriggerTime - PreviousLastCycleStartPreTriggerTime,
@@ -543,6 +549,10 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     unsigned int NumberOfFailedRunsSinceLastSuccessfulRun = 0;
     QTime now = QTime::currentTime();
     LastSuccessfulCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
+    bool AdditionalCycleTimeStatus = false;
+    double StandardPeriodicTriggerPeriod_in_ms = 0;
+    double CurrentPeriodicTriggerPeriod_in_ms = 0;    
+    double NextPeriodicTriggerPeriod_in_ms = 0;
     while (Cycling) {
         SetStatusTextAndLog("Starting to cycle from scratch.");
         LittleCycle = true;
@@ -595,14 +605,17 @@ bool CycleSequenceWithIndividualCommandUpdate() {
 #endif
 
         PeriodicTriggerPeriod_in_ms = SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms;
+        StandardPeriodicTriggerPeriod_in_ms = PeriodicTriggerPeriod_in_ms;
         SetStatusTextAndLog("Cycling with " + QString::number(PeriodicTriggerPeriod_in_ms) + " ms period of which " + QString::number(SequenceDuration_in_ms) + " ms sequence duration.");
         //WaitTimeBetweenSequences_in_ms is essentially the MOT loading time.
         //During this time the data of the last run is read out, analyzed and the frequency command for the next run(s) are sent.
         double MaxSequenceDuration_in_s = 20 + PeriodicTriggerPeriod_in_ms/1000; //for the detection of timeouts
-        //Next we define the cycle time. This resets the cycle.
-        //When we launch a sequence the FPGA will wait till at least PeriodicTriggerPeriod_in_ms has elapsed since the last time we did run.
+        //Next we define the cycle time.
+        //When we launch a sequence the FPGA will wait till at least PeriodicTriggerPeriod_in_ms has elapsed since the last time we did run (unless it's the first sequence in a cycle).
         //If FPGA needs to wait longer than PeriodicTriggerAllowedWaitTime_in_ms, the CycleError flag is set high. That flag is retrieved with GetCycleData().
         CA.SetPeriodicTrigger(PeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms);
+        CurrentPeriodicTriggerPeriod_in_ms = PeriodicTriggerPeriod_in_ms;        
+        NextPeriodicTriggerPeriod_in_ms = PeriodicTriggerPeriod_in_ms;
 
         long NextCycleNumber = 1;
         unsigned long CycleNrFromBuffer = 0;
@@ -684,6 +697,24 @@ bool CycleSequenceWithIndividualCommandUpdate() {
             char command[100];
             sprintf(command, "WriteInputMemory(%u);", NextCycleNumber);
             CA.ReplaceCommand(NextCycleNumber, ModifyCodeLineNr2, command);
+
+            //The periodic trigger time has to be set depending on the duration of the preceding sequence.
+            //Change it if the last sequence had a different duration than the one before that.
+            if (CurrentPeriodicTriggerPeriod_in_ms != NextPeriodicTriggerPeriod_in_ms) {
+                CA.SetPeriodicTrigger(NextPeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms + (NextPeriodicTriggerPeriod_in_ms-StandardPeriodicTriggerPeriod_in_ms));
+                CurrentPeriodicTriggerPeriod_in_ms = NextPeriodicTriggerPeriod_in_ms;
+                PeriodicTriggerPeriod_in_ms = NextPeriodicTriggerPeriod_in_ms;
+            }
+            //example of alternating between two cycle times
+            AdditionalCycleTimeStatus = !AdditionalCycleTimeStatus;
+            double AdditionalCycleTime = (AdditionalCycleTimeStatus) ? 0 : 300;
+            sprintf(command, "Wait(%u);", AdditionalCycleTime);
+            CA.ReplaceCommand(NextCycleNumber, ModifyCodeLineNr3, command);
+            //The next periodic trigger time depends on the duration of the current sequence. 
+            //It will be transferred to the FPGA after the next cycle has ended, i.e. during the blue MOT time of the next cycle.
+            //This guarantees that the blue MOT time is always the same, independent of the duration of the sequence.
+            NextPeriodicTriggerPeriod_in_ms = StandardPeriodicTriggerPeriod_in_ms + AdditionalCycleTime;
+            
             //you can also update commands of cycles that lie more than one in the future
             //CA.ReplaceCommand(NextCycleNumber+2, ModifyCodeLineNr1, "SetFrequencyBlueMOTDPAOM(202);");
             //the new sequence parameters have been sent. We can trigger the transfer of the next sequence to the FPGA.
