@@ -248,7 +248,7 @@ void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
     //The main application of this technique is to update the frequency of the clock laser probe beam.
     ModifyCodeLineNr1 = CA.GetLastCommandLineNumber();
     
-    CA.Command("Wait(20);");
+    CA.Command("Wait(10);");
     //Message("Modify code line number: "+ QString::number(ModifyCodeLineNr));
     if (take_photodiode_data)  {
         //The FPGA input BRAM (2048 32-bit words) has to periodically copied into DDR by the ZYNQ's CPU (DMA is used for sequence output; too complicated to mesh two DMA transfers).
@@ -306,6 +306,7 @@ void TestSequence(bool RestartMOTLoading, bool take_photodiode_data) {
     CA.Command("Ramp(\"SetFrequencyBlueMOTDPAOM\", LastValue, 210, 100, 1);"); //Ramp(unsigned char* output_name, double start_value /* use LAST_VALUE for last value */, double end_value, double ramp_time_in_ms, double timestep_in_ms = 0.1)
     CA.Command("WaitTillRampsEnd();");
     CA.Command("SetFrequencyBlueMOTDPAOM(210);");
+    CA.Command("Wait(10);");
     CA.Command("Wait(0);");
     ModifyCodeLineNr3 = CA.GetLastCommandLineNumber();
     CA.Command("SetFrequencyBlueMOTDPAOM(201);");
@@ -465,6 +466,10 @@ void GetCycleData(bool take_photodiode_data, long TimeTillNextCycleStart_in_ms, 
     double WaitForTriggerTime = 0.00001 * (FPGASystemTime - FPGASystemTimeStart);
     //We check if the MOT loading time was ok. 
     //For that, PeriodicTriggerPeriod_in_ms must contain the duration of the previous sequence plus the desired MOT loading time.
+    //The only variable part of the sequence is the blue MOT duration. 
+    //We measure this blue MOT's duration by determining the time between the start of the last sequence and the start of this sequence.
+    //The blue MOT duration is ElapsedFPGASystemTime - the duration of the last sequence.
+    //We don't calculate the blue MOT duration explicitly, but check if ElapsedFPGASystemTime is within the expected range.
     unsigned long long ElapsedFPGASystemTime = FPGASystemTime - PreviousFPGASystemTime;
     if (ElapsedFPGASystemTime>PeriodicTriggerPeriod_in_ms*100000+10) {
         ErrorMessages+= " Overtime.";
@@ -551,7 +556,6 @@ bool CycleSequenceWithIndividualCommandUpdate() {
     LastSuccessfulCycleEndTimeSinceMidnight = QTime(0, 0).msecsTo(now);
     bool AdditionalCycleTimeStatus = false;
     double StandardPeriodicTriggerPeriod_in_ms = 0;
-    double CurrentPeriodicTriggerPeriod_in_ms = 0;    
     double NextPeriodicTriggerPeriod_in_ms = 0;
     while (Cycling) {
         SetStatusTextAndLog("Starting to cycle from scratch.");
@@ -614,7 +618,6 @@ bool CycleSequenceWithIndividualCommandUpdate() {
         //When we launch a sequence the FPGA will wait till at least PeriodicTriggerPeriod_in_ms has elapsed since the last time we did run (unless it's the first sequence in a cycle).
         //If FPGA needs to wait longer than PeriodicTriggerAllowedWaitTime_in_ms, the CycleError flag is set high. That flag is retrieved with GetCycleData().
         CA.SetPeriodicTrigger(PeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms);
-        CurrentPeriodicTriggerPeriod_in_ms = PeriodicTriggerPeriod_in_ms;        
         NextPeriodicTriggerPeriod_in_ms = PeriodicTriggerPeriod_in_ms;
 
         long NextCycleNumber = 1;
@@ -700,9 +703,8 @@ bool CycleSequenceWithIndividualCommandUpdate() {
 
             //The periodic trigger time has to be set depending on the duration of the preceding sequence.
             //Change it if the last sequence had a different duration than the one before that.
-            if (CurrentPeriodicTriggerPeriod_in_ms != NextPeriodicTriggerPeriod_in_ms) {
+            if (PeriodicTriggerPeriod_in_ms != NextPeriodicTriggerPeriod_in_ms) {
                 CA.SetPeriodicTrigger(NextPeriodicTriggerPeriod_in_ms, /*PeriodicTriggerAllowedWaitTime_in_ms*/ SequenceDuration_in_ms + WaitTimeBetweenSequences_in_ms + (NextPeriodicTriggerPeriod_in_ms-StandardPeriodicTriggerPeriod_in_ms));
-                CurrentPeriodicTriggerPeriod_in_ms = NextPeriodicTriggerPeriod_in_ms;
                 PeriodicTriggerPeriod_in_ms = NextPeriodicTriggerPeriod_in_ms;
             }
             //example of alternating between two cycle times
